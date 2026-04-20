@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdarg.h>
 #include <switch.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -17,6 +16,8 @@ extern "C" {
     #include "menu_book_reader.h"
     #include "fs.h"
     #include "config.h"
+    #include "paths.h"
+    #include "logger.h"
 }
 
 SDL_Renderer* RENDERER;
@@ -24,50 +25,31 @@ SDL_Window* WINDOW;
 SDL_Event EVENT;
 TTF_Font *ROBOTO_35, *ROBOTO_30, *ROBOTO_27, *ROBOTO_25, *ROBOTO_20, *ROBOTO_15;
 bool configDarkMode;
-
-FILE* g_logFile = NULL;
 PadState g_pad;
-bool g_consoleActive = true;
-
-void Log(const char* fmt, ...) {
-    char buf[256];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, args);
-    va_end(args);
-    
-    printf("%s\n", buf);
-    if (g_consoleActive) consoleUpdate(NULL);
-    if (g_logFile) {
-        fprintf(g_logFile, "%s\n", buf);
-        fflush(g_logFile);
-    }
-}
-
-void WaitAuto() {
-    Log("Waiting 2 seconds...");
-    SDL_Delay(2000);
-}
 
 void Term_Services() {
-    Log("Terminating...");
+    LOG_I("Terminating...");
     timeExit();
-    TTF_CloseFont(ROBOTO_35); TTF_CloseFont(ROBOTO_30); TTF_CloseFont(ROBOTO_27);
-    TTF_CloseFont(ROBOTO_25); TTF_CloseFont(ROBOTO_20); TTF_CloseFont(ROBOTO_15);
+    if (ROBOTO_35) { TTF_CloseFont(ROBOTO_35); ROBOTO_35 = NULL; }
+    if (ROBOTO_30) { TTF_CloseFont(ROBOTO_30); ROBOTO_30 = NULL; }
+    if (ROBOTO_27) { TTF_CloseFont(ROBOTO_27); ROBOTO_27 = NULL; }
+    if (ROBOTO_25) { TTF_CloseFont(ROBOTO_25); ROBOTO_25 = NULL; }
+    if (ROBOTO_20) { TTF_CloseFont(ROBOTO_20); ROBOTO_20 = NULL; }
+    if (ROBOTO_15) { TTF_CloseFont(ROBOTO_15); ROBOTO_15 = NULL; }
     TTF_Quit();
     Textures_Free();
     romfsExit();
     IMG_Quit();
-    SDL_DestroyRenderer(RENDERER);
-    SDL_DestroyWindow(WINDOW);
+    if (RENDERER) { SDL_DestroyRenderer(RENDERER); RENDERER = NULL; }
+    if (WINDOW) { SDL_DestroyWindow(WINDOW); WINDOW = NULL; }
     SDL_Quit();
     #ifdef DEBUG
         twiliExit();
     #endif
-    if (g_logFile) fclose(g_logFile);
+    Log_Term();
 }
 
-void Init_Services() {
+bool Init_Services() {
     #ifdef DEBUG
         twiliInitialize();
     #endif
@@ -76,99 +58,116 @@ void Init_Services() {
     padInitializeDefault(&g_pad);
 
     Result sdmc = fsdevMountSdmc();
-    g_logFile = fopen("sdmc:/eBookReader_debug.log", "w");
-    if (g_logFile) Log("Log file opened.");
-    else Log("WARNING: Log file failed to open!");
+    (void)sdmc;
 
-    Log("1. romfsInit...");
+    Log_Init();
+
+    LOG_I("1. romfsInit...");
     Result rc = romfsInit();
-    if (R_FAILED(rc)) Log("FAILED (0x%X)", rc); else Log("OK");
+    if (R_FAILED(rc)) {
+        LOG_E("FAILED (0x%X)", rc);
+        Term_Services();
+        return false;
+    }
+    LOG_I("OK");
 
-    Log("2. SDL_Init...");
+    LOG_I("2. SDL_Init...");
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_TIMER) < 0) {
-        Log("FAILED (%s)", SDL_GetError());
+        LOG_E("FAILED (%s)", SDL_GetError());
         Term_Services();
+        return false;
     }
-    Log("OK");
+    LOG_I("OK");
 
-    Log("3. timeInitialize...");
+    LOG_I("3. timeInitialize...");
     timeInitialize();
-    Log("OK");
+    LOG_I("OK");
 
-    Log("4. CreateWindow...");
+    LOG_I("4. CreateWindow...");
     if (SDL_CreateWindowAndRenderer(1280, 720, 0, &WINDOW, &RENDERER) == -1)  {
-        Log("FAILED (%s)", SDL_GetError());
+        LOG_E("FAILED (%s)", SDL_GetError());
         Term_Services();
+        return false;
     }
-    Log("OK");
-    WaitAuto();
+    LOG_I("OK");
 
     SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_BLEND);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
-    Log("5. IMG_Init...");
+    LOG_I("5. IMG_Init...");
     if (!IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG)) {
-        Log("FAILED (%s)", IMG_GetError());
+        LOG_E("FAILED (%s)", IMG_GetError());
         Term_Services();
+        return false;
     }
-    Log("OK");
-    WaitAuto();
+    LOG_I("OK");
 
-    Log("6. TTF_Init...");
-    if(TTF_Init() == -1) {
-        Log("FAILED (%s)", TTF_GetError());
+    LOG_I("6. TTF_Init...");
+    if (TTF_Init() == -1) {
+        LOG_E("FAILED (%s)", TTF_GetError());
         Term_Services();
+        return false;
     }
-    Log("OK");
-    WaitAuto();
+    LOG_I("OK");
 
-    Log("7. Textures_Load...");
+    LOG_I("7. Textures_Load...");
     Textures_Load();
-    Log("OK");
-    WaitAuto();
+    LOG_I("OK");
 
-    Log("8. Fonts....");
-    Log("  Checking font file...");
+    LOG_I("8. Fonts....");
+    LOG_I("  Checking font file...");
     FILE* fTest = fopen("romfs:/resources/font/Roboto-Light.ttf", "rb");
-    if (fTest) { Log("  Font file exists"); fclose(fTest); }
-    else { Log("FAILED: Font file not found"); Term_Services(); }
-    Log("  Loading Roboto-Light 35...");
+    if (fTest) {
+        LOG_I("  Font file exists");
+        fclose(fTest);
+    } else {
+        LOG_E("FAILED: Font file not found");
+        Term_Services();
+        return false;
+    }
+    LOG_I("  Loading Roboto-Light 35...");
     ROBOTO_35 = TTF_OpenFont("romfs:/resources/font/Roboto-Light.ttf", 35);
-    if (!ROBOTO_35) { Log("FAILED: Could not open Roboto-Light.ttf"); Term_Services(); }
-    Log("  Loading Roboto-Light 30...");
+    if (!ROBOTO_35) {
+        LOG_E("FAILED: Could not open Roboto-Light.ttf");
+        Term_Services();
+        return false;
+    }
+    LOG_I("  Loading Roboto-Light 30...");
     ROBOTO_30 = TTF_OpenFont("romfs:/resources/font/Roboto-Light.ttf", 30);
-    Log("  Loading Roboto-Light 27...");
+    LOG_I("  Loading Roboto-Light 27...");
     ROBOTO_27 = TTF_OpenFont("romfs:/resources/font/Roboto-Light.ttf", 27);
-    Log("  Loading Roboto-Light 25...");
+    LOG_I("  Loading Roboto-Light 25...");
     ROBOTO_25 = TTF_OpenFont("romfs:/resources/font/Roboto-Light.ttf", 25);
-    Log("  Loading Roboto-Light 20...");
+    LOG_I("  Loading Roboto-Light 20...");
     ROBOTO_20 = TTF_OpenFont("romfs:/resources/font/Roboto-Light.ttf", 20);
-    Log("  Loading Roboto-Light 15...");
+    LOG_I("  Loading Roboto-Light 15...");
     ROBOTO_15 = TTF_OpenFont("romfs:/resources/font/Roboto-Light.ttf", 15);
-    Log("  All fonts loaded");
-    WaitAuto();
-    
-    Log("9. Joysticks...");
+    LOG_I("  All fonts loaded");
+
+    LOG_I("9. Joysticks...");
     for (int i = 0; i < 2; i++) {
         if (SDL_JoystickOpen(i) == NULL) {
-            Log("FAILED (%s)", SDL_GetError());
+            LOG_E("FAILED (%s)", SDL_GetError());
             Term_Services();
+            return false;
         }
     }
-    Log("OK");
-    WaitAuto();
+    LOG_I("OK");
 
-    Log("10. FS_Dirs...");
-    FS_RecursiveMakeDir("/switch/eBookReader/books");
-    Log("OK");
-    WaitAuto();
+    LOG_I("10. FS_Dirs...");
+    if (FS_RecursiveMakeDir(BOOKS_DIR) != 0) {
+        LOG_W("Failed to create books directory: %s", BOOKS_DIR);
+    }
+    LOG_I("OK");
 
     configDarkMode = true;
-    Log("=== Init Complete ===");
+    LOG_I("=== Init Complete ===");
+    return true;
 }
 
 int main(int argc, char *argv[]) {
-    Init_Services();
+    if (!Init_Services())
+        return 1;
 
     if (argc == 2) {
         Menu_OpenBook(argv[1]);

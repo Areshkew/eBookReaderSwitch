@@ -1,5 +1,6 @@
 #include "common.h"
 #include "SDL_helper.h"
+#include "logger.h"
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
 
@@ -65,8 +66,7 @@ void SDL_LoadImage(SDL_Texture **texture, char *path) {
 
 	image = IMG_Load(path);
 	if (!image) {
-		//DEBUG_LOG("IMG_Load failed: %s\n", IMG_GetError());
-		printf("IMG_Load failed: %s\n", IMG_GetError());
+		LOG_E("IMG_Load failed: %s", IMG_GetError());
 		
 		return;
 	}

@@ -2,7 +2,6 @@
 #include "PageLayout.hpp"
 #include "LandscapePageLayout.hpp"
 #include <algorithm>
-#include <iostream>
 #include <libconfig.h>
 
 extern "C"  {
@@ -11,18 +10,22 @@ extern "C"  {
     #include "config.h"
     #include "textures.h"
     #include "common.h"
+    #include "paths.h"
+    #include "logger.h"
 }
 
 fz_context *ctx = NULL;
 int windowX, windowY;
 config_t *config = NULL;
-char* configFile = "/switch/eBookReader/saved_pages.cfg";
+char* configFile = CONFIG_FILE;
 
 static int load_last_page(const char *book_name)  {
     if (!config) {
         config = (config_t *)malloc(sizeof(config_t));
         config_init(config);
-        config_read_file(config, configFile);
+        if (!config_read_file(config, configFile)) {
+            LOG_W("Failed to read config file: %s", configFile);
+        }
     }
     
     config_setting_t *setting = config_setting_get_member(config_root_setting(config), book_name);
@@ -43,7 +46,9 @@ static void save_last_page(const char *book_name, int current_page) {
     
     if (setting) {
         config_setting_set_int(setting, current_page);
-        config_write_file(config, configFile);
+        if (!config_write_file(config, configFile)) {
+            LOG_W("Failed to write config file: %s", configFile);
+        }
     }
 }
 
@@ -63,12 +68,12 @@ BookReader::BookReader(const char *path, int* result) {
     }
     
     fz_try(ctx)	{
-        std::cout << "fz_open_document" << std::endl;
+        LOG_I("fz_open_document");
         doc = fz_open_document(ctx, path);
 
         if (!doc)
         {
-            std::cout << "Error opening file!" << std::endl;
+            LOG_E("Error opening file!");
             *result = -1;
             return;
         }
@@ -76,7 +81,7 @@ BookReader::BookReader(const char *path, int* result) {
         int current_page = load_last_page(book_name.c_str());
         //int current_page = 0;
 
-        std::cout << "current_page = " << current_page << std::endl;
+        LOG_I("current_page = %d", current_page);
 
         switch_current_page_layout(_currentPageLayout, current_page);
 
@@ -85,7 +90,7 @@ BookReader::BookReader(const char *path, int* result) {
         }
     }
     fz_catch(ctx){
-        std::cout << "fz_catch reached, closing gracefully" << std::endl;
+        LOG_E("fz_catch reached, closing gracefully");
         *result = -2;
         return;
     }

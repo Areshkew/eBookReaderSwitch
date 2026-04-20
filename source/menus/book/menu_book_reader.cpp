@@ -4,9 +4,9 @@ extern "C" {
     #include "common.h"
     #include "config.h"
     #include "SDL_helper.h"
+    #include "logger.h"
 }
 
-#include <iostream>
 #include "BookReader.hpp"
 
 void Menu_OpenBook(char *path) {
@@ -16,7 +16,7 @@ void Menu_OpenBook(char *path) {
     reader = new BookReader(path, &result);
     
     if(result < 0){
-        std::cout << "Menu_OpenBook: document not loaded" << std::endl;
+        LOG_W("Menu_OpenBook: document not loaded");
     }
     
     /*TouchInfo touchInfo;
@@ -187,8 +187,8 @@ void Menu_OpenBook(char *path) {
         }*/
     }
 
-    std::cout << "Exiting reader" << std::endl;
-    std::cout << "Opening chooser" << std::endl;
+    LOG_I("Exiting reader");
+    LOG_I("Opening chooser");
     Menu_StartChoosing();
     delete reader;
     // consoleExit(NULL);

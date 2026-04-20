@@ -5,6 +5,8 @@ extern "C" {
     #include "common.h"
     #include "textures.h"
     #include "config.h"
+    #include "paths.h"
+    #include "logger.h"
 }
 
 #include <switch.h>
@@ -30,7 +32,11 @@ void Menu_StartChoosing() {
     list<string> allowedExtentions = {".pdf", ".epub", ".cbz", ".xps"};
     list<string> warnedExtentions = {".epub", ".cbz", ".xps"};
 
-    string path = "/switch/eBookReader/books";
+    string path = BOOKS_DIR;
+
+    if (!FS_DirExists(path.c_str())) {
+        LOG_E("Books directory does not exist: %s", path.c_str());
+    }
 
     // Count the amount of allowed files
     int amountOfFiles = 0;
@@ -103,7 +109,11 @@ void Menu_StartChoosing() {
                         } else {
                             OPEN_BOOK:
                                 string book = path + "/" + filename;
-                                cout << "Opening book: " << book << endl;
+                                if (amountOfFiles == 0) {
+        LOG_W("No books found in: %s", path.c_str());
+    }
+
+    LOG_I("Opening book: %s", book.c_str());
 
                                 Menu_OpenBook((char*) book.c_str());
                                 readingBook = true;
