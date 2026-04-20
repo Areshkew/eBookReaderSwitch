@@ -69,7 +69,6 @@ ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
 LIBS_REAL = stdc++fs SDL2_gfx SDL2_ttf freetype harfbuzz SDL2_image png jpeg webp z bz2 config nx mupdf mupdf-third
-## LIBS_REAL += mupdf_core mupdf_thirdparty
 
 ifeq (,$(NODEBUG))
 LIBS_REAL += twili
@@ -80,7 +79,7 @@ LIBS = $(addprefix -l,$(LIBS_REAL)) $(shell sdl2-config --libs)
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS	:= $(PORTLIBS) $(LIBNX) $(CURDIR)/mupdf
+LIBDIRS	:= $(PORTLIBS) $(LIBNX)
 
 #---------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional
@@ -89,7 +88,7 @@ LIBDIRS	:= $(PORTLIBS) $(LIBNX) $(CURDIR)/mupdf
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 #---------------------------------------------------------------------------------
 
-export OUTPUT	:=	$(CURDIR)/$(TARGET)
+export OUTPUT	:=	$(CURDIR)/dist/$(TARGET)
 export TOPDIR	:=	$(CURDIR)
 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
@@ -158,7 +157,7 @@ ifeq ($(strip $(NO_ICON)),)
 endif
 
 ifeq ($(strip $(NO_NACP)),)
-	export NROFLAGS += --nacp=$(CURDIR)/$(TARGET).nacp
+	export NROFLAGS += --nacp=$(CURDIR)/dist/$(TARGET).nacp
 endif
 
 ifneq ($(APP_TITLEID),)
@@ -169,12 +168,13 @@ ifneq ($(ROMFS),)
 	export NROFLAGS += --romfsdir=$(CURDIR)/$(ROMFS)
 endif
 
-.PHONY: $(BUILD) clean all mupdf
+.PHONY: $(BUILD) clean all
 
 #---------------------------------------------------------------------------------
 all: $(BUILD)
 
 $(BUILD):
+	@[ -d dist ] || mkdir -p dist
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
@@ -182,21 +182,12 @@ $(BUILD):
 clean:
 	@echo clean ...
 ifeq ($(strip $(APP_JSON)),)
-	@rm -fr $(BUILD) $(TARGET).nro $(TARGET).nacp $(TARGET).elf
+	@rm -fr $(BUILD) dist/$(TARGET).nro $(TARGET).nacp $(TARGET).elf
 else
 	@rm -fr $(BUILD) $(TARGET).nsp $(TARGET).nso $(TARGET).npdm $(TARGET).elf
 endif
 
-#---------------------------------------------------------------------------------
-mupdf-clean:
-	@echo cleaning mupdf ...
-	@$(MAKE) -C $(CURDIR)/mupdf clean
-
-#---------------------------------------------------------------------------------
-mupdf:
-	@$(MAKE) -f $(CURDIR)/Makefile.mupdf
-
-#---------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------
 else
 .PHONY:	all
 

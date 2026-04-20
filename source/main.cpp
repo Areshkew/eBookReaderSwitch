@@ -127,7 +127,7 @@ void Init_Services() {
     Log("OK");
     WaitAuto();
 
-    Log("8. Fonts...");
+    Log("8. Fonts....");
     Log("  Checking font file...");
     FILE* fTest = fopen("romfs:/resources/font/Roboto-Light.ttf", "rb");
     if (fTest) { Log("  Font file exists"); fclose(fTest); }

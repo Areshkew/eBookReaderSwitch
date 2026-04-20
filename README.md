@@ -46,20 +46,41 @@ Light Mode Landscape Reading:
 * moronigranja - For allowing more file support
 * NX-Shell Team - A good amount of the code is from an old version of their application.
 
-### Building
-* Release built with [libnx release v4.1.3](https://github.com/switchbrew/libnx).
-* Uses `freetype` and other libs which comes with `switch-portlibs` via `devkitPro pacman`:
+### Building (Debian/Ubuntu)
+
+#### 1. Install devkitPro
+
+```bash
+sudo apt install build-essential make pkg-config
+
+# Add devkitPro APT repository
+sudo mkdir -p /usr/share/keyring/
+sudo wget -U "dkp apt" -O /usr/share/keyring/devkitpro-pub.gpg https://apt.devkitpro.org/devkitpro-pub.gpg
+echo "deb [signed-by=/usr/share/keyring/devkitpro-pub.gpg] https://apt.devkitpro.org stable main" | sudo tee /etc/apt/sources.list.d/devkitpro.list
+sudo apt-get update
+
+# Install Switch toolchain and portlibs
+sudo apt-get install devkitpro-pacman
+sudo dkp-pacman -S switch-dev libnx switch-portlibs
 ```
-pacman -S libnx switch-portlibs
-```
-then run:
-```
-make mupdf
+
+#### 2. Build
+
+```bash
+export DEVKITPRO=/opt/devkitpro
+
 make
 ```
-to build.
 
-If you don't have twili debugger installed, delete the `-ltwili` flag on the Makefile to compile:
+#### 3. Clean
+
+```bash
+make clean
 ```
-LIBS: -ltwili
+
+The output `.nro` file will be in the project root.
+
+If you don't have twili debugger installed, build with `NODEBUG=1`:
+```bash
+NODEBUG=1 make
 ```
