@@ -42,7 +42,6 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 #---------------------------------------------------------------------------------
 mupdf:
 	@echo Building mupdf ...
-	@$(shell ./opt/devkitpro/switchvars.sh $<)
 	$(MAKE) -e -C mupdf \
   CC=${TOOL_PREFIX}gcc \
   CXX=${TOOL_PREFIX}g++ \

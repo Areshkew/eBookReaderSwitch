@@ -37,7 +37,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-TARGET		:=	$(notdir $(CURDIR))
+TARGET		:=	$(notdir $(CURDIR))-dev
 BUILD		:=	build
 SOURCES		:=	source source/menus/book source/menus/book-chooser source/helpers
 DATA		:=	data
@@ -48,7 +48,7 @@ VERSION_MAJOR := 0
 VERSION_MINOR := 4
 VERSION_MICRO := 0
 
-APP_TITLE   := eBookReader
+APP_TITLE   := eBookReader (DEV)
 APP_AUTHOR  := SeanOMik
 APP_VERSION := ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_MICRO}-beta
 ICON := icon.jpg
@@ -58,7 +58,7 @@ ICON := icon.jpg
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 
-CFLAGS	:=	-g -std=c++17 -Wall -O2 -ffunction-sections \
+CFLAGS	:=	-g -std=c++17 -Wall -O2 -ffunction-sections -Wno-int-conversion \
 			$(ARCH) $(DEFINES)
 
 CFLAGS	+=	-D__SWITCH__ $(INCLUDE) `sdl2-config --cflags`
@@ -68,7 +68,7 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions #-DDEBUG=1 -DEXPERIMENTAL=1
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS_REAL = stdc++fs SDL2_ttf SDL2_image png jpeg freetype webp z bz2 config nx mupdf mupdf-third
+LIBS_REAL = stdc++fs SDL2_gfx SDL2_ttf freetype harfbuzz SDL2_image png jpeg webp z bz2 config nx mupdf mupdf-third
 ## LIBS_REAL += mupdf_core mupdf_thirdparty
 
 ifeq (,$(NODEBUG))

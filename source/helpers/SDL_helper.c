@@ -1,6 +1,7 @@
 #include "common.h"
 #include "SDL_helper.h"
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL2_gfxPrimitives.h>
 
 void SDL_ClearScreen(SDL_Renderer *renderer, SDL_Color colour) {
 	SDL_SetRenderDrawColor(renderer, colour.r, colour.g, colour.b, colour.a);
