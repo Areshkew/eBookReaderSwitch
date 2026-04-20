@@ -47,6 +47,14 @@ void PageLayout::move_right() {
     move_page(3, 0);
 };
 
+void PageLayout::pan(float dx, float dy) {
+    move_page(dx, dy);
+};
+
+void PageLayout::zoom_by(float factor) {
+    set_zoom(zoom * factor);
+};
+
 void PageLayout::reset() {
     page_center = fz_make_point(viewport.w / 2, viewport.h / 2);
     set_zoom(min_zoom);

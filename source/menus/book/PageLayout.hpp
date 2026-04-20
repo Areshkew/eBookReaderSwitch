@@ -25,6 +25,11 @@ class PageLayout
             return _current_page;
         }
     
+        int total_pages() const
+        {
+            return pages_count;
+        }
+    
         virtual void previous_page(int n);
         virtual void next_page(int n);
         virtual void zoom_in();
@@ -33,6 +38,8 @@ class PageLayout
         virtual void move_down();
         virtual void move_left();
         virtual void move_right();
+        virtual void pan(float dx, float dy);
+        virtual void zoom_by(float factor);
         virtual void reset();
         virtual void draw_page();
         virtual char* info();

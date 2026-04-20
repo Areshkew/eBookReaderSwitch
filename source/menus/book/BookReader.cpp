@@ -3,16 +3,17 @@
 #include "LandscapePageLayout.hpp"
 #include <algorithm>
 #include <libconfig.h>
+#include <cstdio>
 
 extern "C"  {
     #include "SDL_helper.h"
-    #include "status_bar.h"
     #include "config.h"
-    #include "textures.h"
     #include "common.h"
     #include "paths.h"
     #include "logger.h"
 }
+
+#include "imgui.h"
 
 fz_context *ctx = NULL;
 int windowX, windowY;
@@ -79,15 +80,10 @@ BookReader::BookReader(const char *path, int* result) {
         }
         
         int current_page = load_last_page(book_name.c_str());
-        //int current_page = 0;
 
         LOG_I("current_page = %d", current_page);
 
         switch_current_page_layout(_currentPageLayout, current_page);
-
-        if (current_page > 0) {
-            show_status_bar();
-        }
     }
     fz_catch(ctx){
         LOG_E("fz_catch reached, closing gracefully");
@@ -104,24 +100,20 @@ BookReader::~BookReader() {
 
 void BookReader::previous_page(int n) {
     layout->previous_page(n);
-    show_status_bar();
     save_last_page(book_name.c_str(), layout->current_page());
 }
 
 void BookReader::next_page(int n) {
     layout->next_page(n);
-    show_status_bar();
     save_last_page(book_name.c_str(), layout->current_page());
 }
 
 void BookReader::zoom_in() {
     layout->zoom_in();
-    show_status_bar();
 }
 
 void BookReader::zoom_out() {
     layout->zoom_out();
-    show_status_bar();
 }
 
 void BookReader::move_page_up() {
@@ -140,9 +132,16 @@ void BookReader::move_page_right() {
     layout->move_right();
 }
 
+void BookReader::pan_page(float dx, float dy) {
+    layout->pan(dx, dy);
+}
+
+void BookReader::zoom_by(float factor) {
+    layout->zoom_by(factor);
+}
+
 void BookReader::reset_page() {
     layout->reset();
-    show_status_bar();
 }
 
 void BookReader::switch_page_layout() {
@@ -156,7 +155,7 @@ void BookReader::switch_page_layout() {
     }
 }
 
-void BookReader::draw(bool drawHelp) {
+void BookReader::draw() {
     if (configDarkMode == true) {
         SDL_ClearScreen(RENDERER, BLACK);
     } else {
@@ -166,62 +165,144 @@ void BookReader::draw(bool drawHelp) {
     SDL_RenderClear(RENDERER);
     
     layout->draw_page();
-    
-    if (drawHelp) { // Help menu
-        int helpWidth = 680;
-        int helpHeight = 365;
-        helpHeight -= 38; // Removed due to removing the skip forward page button prompt.
 
-        if (!configDarkMode) { // Display a dimmed background if on light mode
-            SDL_DrawRect(RENDERER, 0, 0, 1280, 720, SDL_MakeColour(50, 50, 50, 150));
+    if (showUI) {
+        ImGuiIO& io = ImGui::GetIO();
+        float displayW = io.DisplaySize.x;
+        float displayH = io.DisplaySize.y;
+
+        const float topBarH = 55.0f;
+        const float bottomBarH = 70.0f;
+
+        // Distinct bar colours so they’re visible against the page
+        ImVec4 barBg = configDarkMode
+            ? ImVec4(0.14f, 0.14f, 0.14f, 1.00f)
+            : ImVec4(0.86f, 0.86f, 0.86f, 1.00f);
+        ImVec4 sepCol = configDarkMode
+            ? ImVec4(0.30f, 0.30f, 0.30f, 1.00f)
+            : ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 10));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, barBg);
+
+        // --- Top Bar ---
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        ImGui::SetNextWindowSize(ImVec2(displayW, topBarH));
+        ImGui::Begin("TopBar", nullptr,
+            ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
+            ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs |
+            ImGuiWindowFlags_NoNavFocus);
+
+        // Back button
+        if (ImGui::Button("<", ImVec2(36, 34))) {
+            requestExit = true;
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Back to library");
         }
 
-        SDL_DrawRect(RENDERER, (windowX - helpWidth) / 2, (windowY - helpHeight) / 2, helpWidth, helpHeight, configDarkMode ? HINT_COLOUR_DARK : HINT_COLOUR_LIGHT);
+        ImGui::SameLine();
 
-        int textX = (windowX - helpWidth) / 2 + 20;
-        int textY = (windowY - helpHeight) / 2 + 87;
-        SDL_Color textColor = configDarkMode ? WHITE : BLACK;
-        SDL_DrawText(RENDERER, ROBOTO_30, textX, (windowY - helpHeight) / 2 + 10, textColor, "Help Menu:");
+        // Book title centred
+        float availW = ImGui::GetContentRegionAvail().x;
+        float titleWidth = ImGui::CalcTextSize(book_name.c_str()).x;
+        float titleX = (availW - titleWidth) * 0.5f;
+        if (titleX < 0) titleX = 0;
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + titleX);
+        ImGui::Text("%s", book_name.c_str());
 
-        SDL_DrawButtonPrompt(RENDERER, button_b,               ROBOTO_25, textColor, "Stop reading / Close help menu.", textX, textY,          35, 35, 5, 0);
-        SDL_DrawButtonPrompt(RENDERER, button_minus,           ROBOTO_25, textColor, "Switch to dark/light theme.",     textX, textY + 38,     35, 35, 5, 0);
-        SDL_DrawButtonPrompt(RENDERER, right_stick_up_down,    ROBOTO_25, textColor, "Zoom in/out.",                    textX, textY + 38 * 2, 35, 35, 5, 0);
-        SDL_DrawButtonPrompt(RENDERER, left_stick_up_down,     ROBOTO_25, textColor, "Page up/down.",                   textX, textY + 38 * 3, 35, 35, 5, 0);
-        SDL_DrawButtonPrompt(RENDERER, button_y,               ROBOTO_25, textColor, "Rotate page.",                    textX, textY + 38 * 4, 35, 35, 5, 0);
-        SDL_DrawButtonPrompt(RENDERER, button_x,               ROBOTO_25, textColor, "Keep status bar on.",             textX, textY + 38 * 5, 35, 35, 5, 0);
-        SDL_DrawButtonPrompt(RENDERER, button_dpad_left_right, ROBOTO_25, textColor, "Next/previous page.",             textX, textY + 38 * 6, 35, 35, 5, 0);
-        //SDL_DrawButtonPrompt(RENDERER, button_dpad_up_down,    ROBOTO_25, textColor, "Skip forward/backward 10 pages.", textX, textY + 38 * 7, 35, 35, 5, 0);
-    }
+        // Right-side placeholder icons
+        ImGui::SameLine();
+        float rightX = displayW - 240;
+        ImGui::SetCursorPosX(rightX);
+        if (ImGui::Button("Aa", ImVec2(36, 34))) { /* placeholder: text settings */ }
+        ImGui::SameLine();
+        if (ImGui::Button("::", ImVec2(36, 34))) { /* placeholder: TOC */ }
+        ImGui::SameLine();
+        if (ImGui::Button("Bm", ImVec2(36, 34))) { /* placeholder: bookmark */ }
+        ImGui::SameLine();
+        if (ImGui::Button("Q", ImVec2(36, 34))) { /* placeholder: search */ }
+        ImGui::SameLine();
+        if (ImGui::Button(":", ImVec2(36, 34))) { /* placeholder: more */ }
 
-    if (permStatusBar || --status_bar_visible_counter > 0)  {
-        char *title = layout->info();
-        
-        int title_width = 0, title_height = 0;
-        TTF_SizeText(ROBOTO_15, title, &title_width, &title_height);
-        
-        SDL_Color color = configDarkMode ? STATUS_BAR_DARK : STATUS_BAR_LIGHT;
-        
+        ImGui::End();
+
+        // Separator line under top bar
+        ImDrawList* drawList = ImGui::GetForegroundDrawList();
+        drawList->AddLine(ImVec2(0, topBarH), ImVec2(displayW, topBarH),
+            ImGui::ColorConvertFloat4ToU32(sepCol), 1.0f);
+
+        // --- Bottom Bar ---
+        float bottomY = displayH - bottomBarH;
+        ImGui::SetNextWindowPos(ImVec2(0, bottomY));
+        ImGui::SetNextWindowSize(ImVec2(displayW, bottomBarH));
+        ImGui::Begin("BottomBar", nullptr,
+            ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
+            ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs |
+            ImGuiWindowFlags_NoNavFocus);
+
+        // Page / progress info
+        int cur = layout->current_page() + 1;
+        int tot = layout->total_pages();
+        int pct = tot > 0 ? (cur * 100 / tot) : 0;
+
+        char infoBuf[128];
+        snprintf(infoBuf, sizeof(infoBuf), "Page %d of %d  |  %d%%", cur, tot, pct);
+        float infoWidth = ImGui::CalcTextSize(infoBuf).x;
+        ImGui::SetCursorPosX((displayW - infoWidth) * 0.5f);
+        ImGui::Text("%s", infoBuf);
+
+        // Layout toggle buttons
+        float btnW = 90.0f;
+        float gap = 16.0f;
+        float groupW = btnW * 2 + gap;
+        ImGui::SetCursorPosX((displayW - groupW) * 0.5f);
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4);
+
+        ImVec4 activeBtnCol = ImGui::GetStyle().Colors[ImGuiCol_ButtonActive];
         if (_currentPageLayout == BookPageLayoutPortrait) {
-            SDL_DrawRect(RENDERER, 0, 0, 1280, 45, SDL_MakeColour(color.r, color.g, color.b , 180));
-            SDL_DrawText(RENDERER, ROBOTO_25, (1280 - title_width) / 2, (40 - title_height) / 2, WHITE, title);
-            
-            StatusBar_DisplayTime(false);
-        } else if (_currentPageLayout == BookPageLayoutLandscape) {
-            SDL_DrawRect(RENDERER, 1280 - 45, 0, 45, 720, SDL_MakeColour(color.r, color.g, color.b , 180));
-            int x = (1280 - title_width) - ((40 - title_height) / 2);
-            int y = (720 - title_height) / 2;
-            SDL_DrawRotatedText(RENDERER, ROBOTO_25, (double) 90, x, y, WHITE, title);
-
-            StatusBar_DisplayTime(true);
+            ImGui::PushStyleColor(ImGuiCol_Button, activeBtnCol);
         }
-    }
-    
-    
-    SDL_RenderPresent(RENDERER);
-}
+        if (ImGui::Button("[|]", ImVec2(btnW, 30))) {
+            if (_currentPageLayout != BookPageLayoutPortrait)
+                switch_page_layout();
+        }
+        if (_currentPageLayout == BookPageLayoutPortrait) {
+            ImGui::PopStyleColor();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Portrait layout");
+        }
 
-void BookReader::show_status_bar() {
-    status_bar_visible_counter = 200;
+        ImGui::SameLine(0, gap);
+
+        if (_currentPageLayout == BookPageLayoutLandscape) {
+            ImGui::PushStyleColor(ImGuiCol_Button, activeBtnCol);
+        }
+        if (ImGui::Button("[| |]", ImVec2(btnW, 30))) {
+            if (_currentPageLayout != BookPageLayoutLandscape)
+                switch_page_layout();
+        }
+        if (_currentPageLayout == BookPageLayoutLandscape) {
+            ImGui::PopStyleColor();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Landscape layout");
+        }
+
+        ImGui::End();
+
+        // Separator line above bottom bar
+        drawList->AddLine(ImVec2(0, bottomY), ImVec2(displayW, bottomY),
+            ImGui::ColorConvertFloat4ToU32(sepCol), 1.0f);
+
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar(3);
+    }
 }
 
 void BookReader::switch_current_page_layout(BookPageLayout bookPageLayout, int current_page) {
