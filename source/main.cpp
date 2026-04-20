@@ -173,11 +173,14 @@ bool Init_Services() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange; // Switch has no mouse cursor
     io.IniFilename = nullptr; // Don't write imgui.ini to disk
     io.LogFilename = nullptr; // Don't write imgui_log.txt
+
+    // Disable key repeat so one press = one move (no accidental double moves)
+    io.KeyRepeatDelay = FLT_MAX;
+    io.KeyRepeatRate  = FLT_MAX;
 
     io.Fonts->Clear();
     LOG_I("  Loading ImGui font...");

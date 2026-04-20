@@ -22,10 +22,6 @@ extern "C" {
 #include "imgui.h"
 #include "imgui_impl_sdlrenderer2.h"
 
-static inline float Clamp(float v, float mn, float mx) {
-    return (v < mn) ? mn : (v > mx) ? mx : v;
-}
-
 using namespace std;
 namespace fs = filesystem;
 
@@ -134,43 +130,45 @@ static void UpdateImGuiInput(PadState& pad) {
         if (kUp   & btn) io.AddKeyEvent(key, false);
     };
 
-    // Gamepad mapping (Nintendo Switch layout)
-    keyEvent(HidNpadButton_A,     ImGuiKey_GamepadFaceDown);
-    keyEvent(HidNpadButton_B,     ImGuiKey_GamepadFaceRight);
-    keyEvent(HidNpadButton_X,     ImGuiKey_GamepadFaceUp);
-    keyEvent(HidNpadButton_Y,     ImGuiKey_GamepadFaceLeft);
-    keyEvent(HidNpadButton_Up,    ImGuiKey_GamepadDpadUp);
-    keyEvent(HidNpadButton_Down,  ImGuiKey_GamepadDpadDown);
-    keyEvent(HidNpadButton_Left,  ImGuiKey_GamepadDpadLeft);
-    keyEvent(HidNpadButton_Right, ImGuiKey_GamepadDpadRight);
-    keyEvent(HidNpadButton_Plus,  ImGuiKey_GamepadStart);
-    keyEvent(HidNpadButton_Minus, ImGuiKey_GamepadBack);
-    keyEvent(HidNpadButton_L,     ImGuiKey_GamepadL1);
-    keyEvent(HidNpadButton_R,     ImGuiKey_GamepadR1);
-
-    // Keyboard fallback for redundancy
+    // Map Switch buttons to keyboard keys for ImGui navigation
+    // (Using keyboard nav instead of gamepad nav avoids requiring
+    // a platform backend that sets ImGuiBackendFlags_HasGamepad.)
+    keyEvent(HidNpadButton_A,     ImGuiKey_Enter);
+    keyEvent(HidNpadButton_B,     ImGuiKey_Escape);
     keyEvent(HidNpadButton_Up,    ImGuiKey_UpArrow);
     keyEvent(HidNpadButton_Down,  ImGuiKey_DownArrow);
     keyEvent(HidNpadButton_Left,  ImGuiKey_LeftArrow);
     keyEvent(HidNpadButton_Right, ImGuiKey_RightArrow);
-    keyEvent(HidNpadButton_A,     ImGuiKey_Enter);
-    keyEvent(HidNpadButton_B,     ImGuiKey_Escape);
+    keyEvent(HidNpadButton_Plus,  ImGuiKey_Space);
+    keyEvent(HidNpadButton_Minus, ImGuiKey_Tab);
 
-    // Analog sticks
-    HidAnalogStickState leftStick  = padGetStickPos(&pad, 0);
-    HidAnalogStickState rightStick = padGetStickPos(&pad, 1);
+    // Analog sticks → keyboard arrows (one-shot, no analog repeat)
+    HidAnalogStickState leftStick = padGetStickPos(&pad, 0);
     const float threshold = 20000.0f;
 
-    float lx = leftStick.x  / 32767.0f;
-    float ly = -leftStick.y / 32767.0f;
-    io.AddKeyAnalogEvent(ImGuiKey_GamepadLStickUp,    leftStick.y  >  threshold,  Clamp(ly,  0.0f, 1.0f));
-    io.AddKeyAnalogEvent(ImGuiKey_GamepadLStickDown,  leftStick.y  < -threshold,  Clamp(-ly, 0.0f, 1.0f));
-    io.AddKeyAnalogEvent(ImGuiKey_GamepadLStickLeft,  leftStick.x  < -threshold,  Clamp(-lx, 0.0f, 1.0f));
-    io.AddKeyAnalogEvent(ImGuiKey_GamepadLStickRight, leftStick.x  >  threshold,  Clamp(lx,  0.0f, 1.0f));
+    static bool stickUpPrev    = false;
+    static bool stickDownPrev  = false;
+    static bool stickLeftPrev  = false;
+    static bool stickRightPrev = false;
 
-    float ry = -rightStick.y / 32767.0f;
-    io.AddKeyAnalogEvent(ImGuiKey_GamepadRStickUp,   rightStick.y >  threshold,  Clamp(ry,  0.0f, 1.0f));
-    io.AddKeyAnalogEvent(ImGuiKey_GamepadRStickDown, rightStick.y < -threshold,  Clamp(-ry, 0.0f, 1.0f));
+    bool stickUp    = leftStick.y >  threshold;
+    bool stickDown  = leftStick.y < -threshold;
+    bool stickLeft  = leftStick.x < -threshold;
+    bool stickRight = leftStick.x >  threshold;
+
+    if (stickUp    && !stickUpPrev)    io.AddKeyEvent(ImGuiKey_UpArrow,    true);
+    if (!stickUp   && stickUpPrev)     io.AddKeyEvent(ImGuiKey_UpArrow,    false);
+    if (stickDown  && !stickDownPrev)  io.AddKeyEvent(ImGuiKey_DownArrow,  true);
+    if (!stickDown && stickDownPrev)   io.AddKeyEvent(ImGuiKey_DownArrow,  false);
+    if (stickLeft  && !stickLeftPrev)  io.AddKeyEvent(ImGuiKey_LeftArrow,  true);
+    if (!stickLeft && stickLeftPrev)   io.AddKeyEvent(ImGuiKey_LeftArrow,  false);
+    if (stickRight && !stickRightPrev) io.AddKeyEvent(ImGuiKey_RightArrow, true);
+    if (!stickRight && stickRightPrev) io.AddKeyEvent(ImGuiKey_RightArrow, false);
+
+    stickUpPrev    = stickUp;
+    stickDownPrev  = stickDown;
+    stickLeftPrev  = stickLeft;
+    stickRightPrev = stickRight;
 }
 
 void Menu_StartChoosing() {
@@ -207,7 +205,6 @@ void Menu_StartChoosing() {
     PadState pad;
     padInitializeDefault(&pad);
 
-    char filterBuffer[256] = "";
     bool showWarningModal = false;
     int warningBookIdx = -1;
 
@@ -221,7 +218,6 @@ void Menu_StartChoosing() {
 
     string bookToOpen;
     bool openBook = false;
-    bool wasFilterActive = false;
 
     while (appletMainLoop()) {
         // Pump SDL events
@@ -234,11 +230,11 @@ void Menu_StartChoosing() {
         u64 kDown = padGetButtonsDown(&pad);
 
         // App-level controls
-        if (!showWarningModal && !wasFilterActive && (kDown & HidNpadButton_Plus))
+        if (!showWarningModal && (kDown & HidNpadButton_Plus))
             break;
         if (kDown & HidNpadButton_Minus)
             configDarkMode = !configDarkMode;
-        if (!showWarningModal && !wasFilterActive && !SDL_IsTextInputActive() && (kDown & HidNpadButton_B))
+        if (!showWarningModal && (kDown & HidNpadButton_B))
             break;
 
         // Start ImGui frame
@@ -292,15 +288,9 @@ void Menu_StartChoosing() {
 
         // ---- Filters ----
         ImGui::AlignTextToFramePadding();
-        ImGui::Text("Search:");
+        ImGui::Text("Filter:");
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(400);
-        bool filterTextChanged = ImGui::InputText("##filter", filterBuffer, sizeof(filterBuffer));
-
-        wasFilterActive = ImGui::IsItemActive();
-
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(130);
+        ImGui::SetNextItemWidth(150);
         if (ImGui::BeginCombo("##extfilter", extItems[extFilter])) {
             for (int n = 0; n < IM_ARRAYSIZE(extItems); n++) {
                 bool isSelected = (extFilter == n);
@@ -312,24 +302,13 @@ void Menu_StartChoosing() {
             ImGui::EndCombo();
         }
 
-        // Rebuild filtered list if needed
-        if (filterTextChanged || extFilter != prevExtFilter) {
+        // Rebuild filtered list if extension filter changed
+        if (extFilter != prevExtFilter) {
             prevExtFilter = extFilter;
             filteredIndices.clear();
 
-            string filter = filterBuffer;
-            transform(filter.begin(), filter.end(), filter.begin(), ::tolower);
-
             for (int i = 0; i < (int)books.size(); i++) {
                 const BookEntry& book = books[i];
-
-                // Text filter
-                if (!filter.empty()) {
-                    string nameLower = book.filename;
-                    transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::tolower);
-                    if (nameLower.find(filter) == string::npos)
-                        continue;
-                }
 
                 // Extension filter
                 if (extFilter > 0) {
@@ -458,15 +437,6 @@ void Menu_StartChoosing() {
             ImGui::EndPopup();
         }
 
-        // ---- SDL text input handling (for OSK) ----
-        if (io.WantTextInput) {
-            if (!SDL_IsTextInputActive())
-                SDL_StartTextInput();
-        } else {
-            if (SDL_IsTextInputActive())
-                SDL_StopTextInput();
-        }
-
         // ---- Render ----
         ImGui::Render();
         SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 255);
@@ -483,6 +453,4 @@ void Menu_StartChoosing() {
         }
     }
 
-    if (SDL_IsTextInputActive())
-        SDL_StopTextInput();
 }
