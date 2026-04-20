@@ -220,10 +220,41 @@ void Menu_StartChoosing() {
     bool openBook = false;
 
     while (appletMainLoop()) {
-        // Pump SDL events
+        // Pump SDL events and feed touch/mouse to ImGui
+        ImGuiIO& io = ImGui::GetIO();
+
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            (void)e;
+            switch (e.type) {
+                case SDL_FINGERDOWN:
+                    io.AddMousePosEvent(e.tfinger.x * 1280.0f, e.tfinger.y * 720.0f);
+                    io.AddMouseButtonEvent(0, true);
+                    break;
+                case SDL_FINGERUP:
+                    io.AddMousePosEvent(e.tfinger.x * 1280.0f, e.tfinger.y * 720.0f);
+                    io.AddMouseButtonEvent(0, false);
+                    break;
+                case SDL_FINGERMOTION:
+                    io.AddMousePosEvent(e.tfinger.x * 1280.0f, e.tfinger.y * 720.0f);
+                    break;
+                case SDL_MOUSEMOTION:
+                    io.AddMousePosEvent((float)e.motion.x, (float)e.motion.y);
+                    break;
+                case SDL_MOUSEBUTTONDOWN:
+                    if (e.button.button == SDL_BUTTON_LEFT) {
+                        io.AddMousePosEvent((float)e.button.x, (float)e.button.y);
+                        io.AddMouseButtonEvent(0, true);
+                    }
+                    break;
+                case SDL_MOUSEBUTTONUP:
+                    if (e.button.button == SDL_BUTTON_LEFT) {
+                        io.AddMousePosEvent((float)e.button.x, (float)e.button.y);
+                        io.AddMouseButtonEvent(0, false);
+                    }
+                    break;
+                default:
+                    break;
+            }
         }
 
         padUpdate(&pad);
@@ -241,7 +272,6 @@ void Menu_StartChoosing() {
         ImGui_ImplSDLRenderer2_NewFrame();
 
         // Hardcode display parameters for Switch (workaround SDL2 reporting issues)
-        ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2(1280.0f, 720.0f);
         io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
         if (io.DeltaTime <= 0.0f || io.DeltaTime > 1.0f)
