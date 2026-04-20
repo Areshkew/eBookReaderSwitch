@@ -9,6 +9,9 @@
     #include <twili.h>
 #endif
 
+#include "imgui.h"
+#include "imgui_impl_sdlrenderer2.h"
+
 extern "C" {
     #include "common.h"
     #include "textures.h"
@@ -26,9 +29,15 @@ SDL_Event EVENT;
 TTF_Font *ROBOTO_35, *ROBOTO_30, *ROBOTO_27, *ROBOTO_25, *ROBOTO_20, *ROBOTO_15;
 bool configDarkMode;
 PadState g_pad;
+static bool g_imguiInitialized = false;
 
 void Term_Services() {
     LOG_I("Terminating...");
+    if (g_imguiInitialized) {
+        ImGui_ImplSDLRenderer2_Shutdown();
+        ImGui::DestroyContext();
+        g_imguiInitialized = false;
+    }
     timeExit();
     if (ROBOTO_35) { TTF_CloseFont(ROBOTO_35); ROBOTO_35 = NULL; }
     if (ROBOTO_30) { TTF_CloseFont(ROBOTO_30); ROBOTO_30 = NULL; }
@@ -160,6 +169,37 @@ bool Init_Services() {
     }
     LOG_I("OK");
 
+    LOG_I("11. ImGui...");
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange; // Switch has no mouse cursor
+    io.IniFilename = nullptr; // Don't write imgui.ini to disk
+    io.LogFilename = nullptr; // Don't write imgui_log.txt
+
+    io.Fonts->Clear();
+    LOG_I("  Loading ImGui font...");
+    ImFont* imFont = io.Fonts->AddFontFromFileTTF("romfs:/resources/font/Roboto-Light.ttf", 28.0f);
+    if (!imFont) {
+        LOG_E("Failed to load ImGui font");
+        Term_Services();
+        return false;
+    }
+    LOG_I("  Building font atlas...");
+    bool fontAtlasBuilt = io.Fonts->Build();
+    LOG_I("  Font atlas built: %s", fontAtlasBuilt ? "OK" : "FAILED");
+
+    LOG_I("  Init SDLRenderer2 backend...");
+    if (!ImGui_ImplSDLRenderer2_Init(RENDERER)) {
+        LOG_E("ImGui_ImplSDLRenderer2_Init failed");
+        Term_Services();
+        return false;
+    }
+    g_imguiInitialized = true;
+    LOG_I("OK");
+
     configDarkMode = true;
     LOG_I("=== Init Complete ===");
     return true;
@@ -170,9 +210,12 @@ int main(int argc, char *argv[]) {
         return 1;
 
     if (argc == 2) {
+        LOG_I("Opening book from association: %s", argv[1]);
         Menu_OpenBook(argv[1]);
     } else {
+        LOG_I("Starting book chooser...");
         Menu_StartChoosing();
+        LOG_I("Book chooser returned");
     }
 
     Term_Services();

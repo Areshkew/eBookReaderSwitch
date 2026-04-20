@@ -1,9 +1,8 @@
 extern "C" {
     #include "MenuChooser.h"
     #include "menu_book_reader.h"
-    #include "SDL_helper.h"
     #include "common.h"
-    #include "textures.h"
+    #include "fs.h"
     #include "config.h"
     #include "paths.h"
     #include "logger.h"
@@ -12,180 +11,478 @@ extern "C" {
 #include <switch.h>
 #include <iostream>
 #include <filesystem>
-#include <bits/stdc++.h>
+#include <vector>
+#include <list>
+#include <string>
+#include <algorithm>
+#include <cstring>
 
-#include <SDL2/SDL_image.h>
+#include <SDL2/SDL.h>
+
+#include "imgui.h"
+#include "imgui_impl_sdlrenderer2.h"
+
+static inline float Clamp(float v, float mn, float mx) {
+    return (v < mn) ? mn : (v > mx) ? mx : v;
+}
 
 using namespace std;
 namespace fs = filesystem;
 
-template <typename T> bool contains(list<T> & listOfElements, const T & element) {
-	auto it = find(listOfElements.begin(), listOfElements.end(), element);
-	return it != listOfElements.end();
-}
+struct BookEntry {
+    string filename;
+    string path;
+    string ext;
+    bool isExperimental;
+};
 
-extern TTF_Font *ROBOTO_35, *ROBOTO_25, *ROBOTO_15;
+static void SetSwitchTheme(bool dark) {
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImVec4* colors = style.Colors;
 
-void Menu_StartChoosing() {
-    int choosenIndex = 0;
-    bool readingBook = false;
-    list<string> allowedExtentions = {".pdf", ".epub", ".cbz", ".xps"};
-    list<string> warnedExtentions = {".epub", ".cbz", ".xps"};
-
-    string path = BOOKS_DIR;
-
-    if (!FS_DirExists(path.c_str())) {
-        LOG_E("Books directory does not exist: %s", path.c_str());
+    if (dark) {
+        colors[ImGuiCol_Text]                   = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
+        colors[ImGuiCol_TextDisabled]           = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+        colors[ImGuiCol_WindowBg]               = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
+        colors[ImGuiCol_ChildBg]                = ImVec4(0.13f, 0.13f, 0.13f, 1.00f);
+        colors[ImGuiCol_PopupBg]                = ImVec4(0.15f, 0.15f, 0.15f, 0.98f);
+        colors[ImGuiCol_Border]                 = ImVec4(0.20f, 0.20f, 0.20f, 0.50f);
+        colors[ImGuiCol_FrameBg]                = ImVec4(0.18f, 0.18f, 0.18f, 1.00f);
+        colors[ImGuiCol_FrameBgHovered]         = ImVec4(0.22f, 0.22f, 0.22f, 1.00f);
+        colors[ImGuiCol_FrameBgActive]          = ImVec4(0.25f, 0.25f, 0.25f, 1.00f);
+        colors[ImGuiCol_TitleBg]                = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);
+        colors[ImGuiCol_TitleBgActive]          = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
+        colors[ImGuiCol_MenuBarBg]              = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
+        colors[ImGuiCol_ScrollbarBg]            = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);
+        colors[ImGuiCol_ScrollbarGrab]          = ImVec4(0.35f, 0.35f, 0.35f, 1.00f);
+        colors[ImGuiCol_ScrollbarGrabHovered]   = ImVec4(0.45f, 0.45f, 0.45f, 1.00f);
+        colors[ImGuiCol_ScrollbarGrabActive]    = ImVec4(0.55f, 0.55f, 0.55f, 1.00f);
+        colors[ImGuiCol_CheckMark]              = ImVec4(0.00f, 0.82f, 1.00f, 1.00f);
+        colors[ImGuiCol_SliderGrab]             = ImVec4(0.00f, 0.82f, 1.00f, 1.00f);
+        colors[ImGuiCol_SliderGrabActive]       = ImVec4(0.20f, 0.90f, 1.00f, 1.00f);
+        colors[ImGuiCol_Button]                 = ImVec4(0.20f, 0.20f, 0.20f, 1.00f);
+        colors[ImGuiCol_ButtonHovered]          = ImVec4(0.28f, 0.28f, 0.28f, 1.00f);
+        colors[ImGuiCol_ButtonActive]           = ImVec4(0.35f, 0.35f, 0.35f, 1.00f);
+        colors[ImGuiCol_Header]                 = ImVec4(0.18f, 0.18f, 0.18f, 1.00f);
+        colors[ImGuiCol_HeaderHovered]          = ImVec4(0.25f, 0.25f, 0.25f, 1.00f);
+        colors[ImGuiCol_HeaderActive]           = ImVec4(0.00f, 0.72f, 0.90f, 0.30f);
+        colors[ImGuiCol_Separator]              = ImVec4(0.25f, 0.25f, 0.25f, 0.50f);
+        colors[ImGuiCol_ResizeGrip]             = ImVec4(0.00f, 0.82f, 1.00f, 0.50f);
+        colors[ImGuiCol_ResizeGripHovered]      = ImVec4(0.00f, 0.82f, 1.00f, 0.75f);
+        colors[ImGuiCol_ResizeGripActive]       = ImVec4(0.00f, 0.82f, 1.00f, 1.00f);
+        colors[ImGuiCol_Tab]                    = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
+        colors[ImGuiCol_TabHovered]             = ImVec4(0.25f, 0.25f, 0.25f, 1.00f);
+        colors[ImGuiCol_TabActive]              = ImVec4(0.00f, 0.72f, 0.90f, 1.00f);
+        colors[ImGuiCol_ModalWindowDimBg]       = ImVec4(0.00f, 0.00f, 0.00f, 0.60f);
+    } else {
+        colors[ImGuiCol_Text]                   = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
+        colors[ImGuiCol_TextDisabled]           = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+        colors[ImGuiCol_WindowBg]               = ImVec4(0.94f, 0.94f, 0.94f, 1.00f);
+        colors[ImGuiCol_ChildBg]                = ImVec4(0.96f, 0.96f, 0.96f, 1.00f);
+        colors[ImGuiCol_PopupBg]                = ImVec4(1.00f, 1.00f, 1.00f, 0.98f);
+        colors[ImGuiCol_Border]                 = ImVec4(0.70f, 0.70f, 0.70f, 0.50f);
+        colors[ImGuiCol_FrameBg]                = ImVec4(0.85f, 0.85f, 0.85f, 1.00f);
+        colors[ImGuiCol_FrameBgHovered]         = ImVec4(0.80f, 0.80f, 0.80f, 1.00f);
+        colors[ImGuiCol_FrameBgActive]          = ImVec4(0.75f, 0.75f, 0.75f, 1.00f);
+        colors[ImGuiCol_TitleBg]                = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+        colors[ImGuiCol_TitleBgActive]          = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
+        colors[ImGuiCol_MenuBarBg]              = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
+        colors[ImGuiCol_ScrollbarBg]            = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+        colors[ImGuiCol_ScrollbarGrab]          = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
+        colors[ImGuiCol_ScrollbarGrabHovered]   = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+        colors[ImGuiCol_ScrollbarGrabActive]    = ImVec4(0.40f, 0.40f, 0.40f, 1.00f);
+        colors[ImGuiCol_CheckMark]              = ImVec4(0.00f, 0.55f, 0.75f, 1.00f);
+        colors[ImGuiCol_SliderGrab]             = ImVec4(0.00f, 0.55f, 0.75f, 1.00f);
+        colors[ImGuiCol_SliderGrabActive]       = ImVec4(0.00f, 0.65f, 0.85f, 1.00f);
+        colors[ImGuiCol_Button]                 = ImVec4(0.85f, 0.85f, 0.85f, 1.00f);
+        colors[ImGuiCol_ButtonHovered]          = ImVec4(0.80f, 0.80f, 0.80f, 1.00f);
+        colors[ImGuiCol_ButtonActive]           = ImVec4(0.75f, 0.75f, 0.75f, 1.00f);
+        colors[ImGuiCol_Header]                 = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+        colors[ImGuiCol_HeaderHovered]          = ImVec4(0.85f, 0.85f, 0.85f, 1.00f);
+        colors[ImGuiCol_HeaderActive]           = ImVec4(0.00f, 0.55f, 0.75f, 0.30f);
+        colors[ImGuiCol_Separator]              = ImVec4(0.70f, 0.70f, 0.70f, 0.50f);
+        colors[ImGuiCol_ResizeGrip]             = ImVec4(0.00f, 0.55f, 0.75f, 0.50f);
+        colors[ImGuiCol_ResizeGripHovered]      = ImVec4(0.00f, 0.55f, 0.75f, 0.75f);
+        colors[ImGuiCol_ResizeGripActive]       = ImVec4(0.00f, 0.55f, 0.75f, 1.00f);
+        colors[ImGuiCol_Tab]                    = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+        colors[ImGuiCol_TabHovered]             = ImVec4(0.85f, 0.85f, 0.85f, 1.00f);
+        colors[ImGuiCol_TabActive]              = ImVec4(0.00f, 0.55f, 0.75f, 1.00f);
+        colors[ImGuiCol_ModalWindowDimBg]       = ImVec4(0.20f, 0.20f, 0.20f, 0.40f);
     }
 
-    // Count the amount of allowed files
-    int amountOfFiles = 0;
-    for (const auto & entry : fs::directory_iterator(path)) {
-        string filename = entry.path().filename().string();
-        string extention = filename.substr(filename.find_last_of("."));
+    style.WindowRounding    = 8.0f;
+    style.FrameRounding     = 6.0f;
+    style.ChildRounding     = 6.0f;
+    style.PopupRounding     = 8.0f;
+    style.ScrollbarRounding = 6.0f;
+    style.GrabRounding      = 6.0f;
+    style.TabRounding       = 6.0f;
+    style.WindowBorderSize  = 0.0f;
+    style.FrameBorderSize   = 0.0f;
+    style.PopupBorderSize   = 0.0f;
+    style.ItemSpacing       = ImVec2(8, 8);
+    style.FramePadding      = ImVec2(10, 6);
+}
 
-        if (contains(allowedExtentions, extention)) {
-            amountOfFiles++;
+static void UpdateImGuiInput(PadState& pad) {
+    ImGuiIO& io = ImGui::GetIO();
+    u64 kDown = padGetButtonsDown(&pad);
+    u64 kUp   = padGetButtonsUp(&pad);
+
+    auto keyEvent = [&](HidNpadButton btn, ImGuiKey key) {
+        if (kDown & btn) io.AddKeyEvent(key, true);
+        if (kUp   & btn) io.AddKeyEvent(key, false);
+    };
+
+    // Gamepad mapping (Nintendo Switch layout)
+    keyEvent(HidNpadButton_A,     ImGuiKey_GamepadFaceDown);
+    keyEvent(HidNpadButton_B,     ImGuiKey_GamepadFaceRight);
+    keyEvent(HidNpadButton_X,     ImGuiKey_GamepadFaceUp);
+    keyEvent(HidNpadButton_Y,     ImGuiKey_GamepadFaceLeft);
+    keyEvent(HidNpadButton_Up,    ImGuiKey_GamepadDpadUp);
+    keyEvent(HidNpadButton_Down,  ImGuiKey_GamepadDpadDown);
+    keyEvent(HidNpadButton_Left,  ImGuiKey_GamepadDpadLeft);
+    keyEvent(HidNpadButton_Right, ImGuiKey_GamepadDpadRight);
+    keyEvent(HidNpadButton_Plus,  ImGuiKey_GamepadStart);
+    keyEvent(HidNpadButton_Minus, ImGuiKey_GamepadBack);
+    keyEvent(HidNpadButton_L,     ImGuiKey_GamepadL1);
+    keyEvent(HidNpadButton_R,     ImGuiKey_GamepadR1);
+
+    // Keyboard fallback for redundancy
+    keyEvent(HidNpadButton_Up,    ImGuiKey_UpArrow);
+    keyEvent(HidNpadButton_Down,  ImGuiKey_DownArrow);
+    keyEvent(HidNpadButton_Left,  ImGuiKey_LeftArrow);
+    keyEvent(HidNpadButton_Right, ImGuiKey_RightArrow);
+    keyEvent(HidNpadButton_A,     ImGuiKey_Enter);
+    keyEvent(HidNpadButton_B,     ImGuiKey_Escape);
+
+    // Analog sticks
+    HidAnalogStickState leftStick  = padGetStickPos(&pad, 0);
+    HidAnalogStickState rightStick = padGetStickPos(&pad, 1);
+    const float threshold = 20000.0f;
+
+    float lx = leftStick.x  / 32767.0f;
+    float ly = -leftStick.y / 32767.0f;
+    io.AddKeyAnalogEvent(ImGuiKey_GamepadLStickUp,    leftStick.y  >  threshold,  Clamp(ly,  0.0f, 1.0f));
+    io.AddKeyAnalogEvent(ImGuiKey_GamepadLStickDown,  leftStick.y  < -threshold,  Clamp(-ly, 0.0f, 1.0f));
+    io.AddKeyAnalogEvent(ImGuiKey_GamepadLStickLeft,  leftStick.x  < -threshold,  Clamp(-lx, 0.0f, 1.0f));
+    io.AddKeyAnalogEvent(ImGuiKey_GamepadLStickRight, leftStick.x  >  threshold,  Clamp(lx,  0.0f, 1.0f));
+
+    float ry = -rightStick.y / 32767.0f;
+    io.AddKeyAnalogEvent(ImGuiKey_GamepadRStickUp,   rightStick.y >  threshold,  Clamp(ry,  0.0f, 1.0f));
+    io.AddKeyAnalogEvent(ImGuiKey_GamepadRStickDown, rightStick.y < -threshold,  Clamp(-ry, 0.0f, 1.0f));
+}
+
+void Menu_StartChoosing() {
+    vector<BookEntry> books;
+    list<string> allowedExtensions = {".pdf", ".epub", ".cbz", ".xps"};
+    list<string> warnedExtensions  = {".epub", ".cbz", ".xps"};
+
+    string booksDir = BOOKS_DIR;
+
+    if (FS_DirExists(booksDir.c_str())) {
+        for (const auto& entry : fs::directory_iterator(booksDir)) {
+            string filename = entry.path().filename().string();
+            size_t dotPos = filename.find_last_of('.');
+            if (dotPos == string::npos)
+                continue;
+
+            string ext = filename.substr(dotPos);
+
+            if (find(allowedExtensions.begin(), allowedExtensions.end(), ext) != allowedExtensions.end()) {
+                BookEntry book;
+                book.filename = filename;
+                book.path = entry.path().string();
+                book.ext = ext;
+                book.isExperimental = find(warnedExtensions.begin(), warnedExtensions.end(), ext) != warnedExtensions.end();
+                books.push_back(book);
+            }
         }
     }
 
-    bool isWarningOnScreen = false;
-    int windowX, windowY;
-    SDL_GetWindowSize(WINDOW, &windowX, &windowY);
-    int warningWidth = 700;
-    int warningHeight = 300;
-
-    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
+    sort(books.begin(), books.end(), [](const BookEntry& a, const BookEntry& b) {
+        return a.filename < b.filename;
+    });
 
     PadState pad;
     padInitializeDefault(&pad);
 
-    while(appletMainLoop()) {
-        if (readingBook) {
+    char filterBuffer[256] = "";
+    bool showWarningModal = false;
+    int warningBookIdx = -1;
+
+    const char* extItems[] = {"All", "PDF", "EPUB", "CBZ", "XPS"};
+    int extFilter = 0;
+    int prevExtFilter = 0;
+
+    vector<int> filteredIndices;
+    for (int i = 0; i < (int)books.size(); i++)
+        filteredIndices.push_back(i);
+
+    string bookToOpen;
+    bool openBook = false;
+    bool wasFilterActive = false;
+
+    while (appletMainLoop()) {
+        // Pump SDL events
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            (void)e;
+        }
+
+        padUpdate(&pad);
+        u64 kDown = padGetButtonsDown(&pad);
+
+        // App-level controls
+        if (!showWarningModal && !wasFilterActive && (kDown & HidNpadButton_Plus))
             break;
-        }
-
-        SDL_Color textColor = configDarkMode ? WHITE : BLACK;
-        SDL_Color backColor = configDarkMode ? BACK_BLACK : BACK_WHITE;
-
-        SDL_ClearScreen(RENDERER, backColor);
-		SDL_RenderClear(RENDERER);
-
-	padUpdate(&pad);
-
-	u64 kDown = padGetButtonsDown(&pad);
-	u64 kHeld = padGetButtons(&pad);
-	u64 kUp = padGetButtonsUp(&pad);
-
-        if (!isWarningOnScreen && kDown & HidNpadButton_Plus) {
+        if (kDown & HidNpadButton_Minus)
+            configDarkMode = !configDarkMode;
+        if (!showWarningModal && !wasFilterActive && !SDL_IsTextInputActive() && (kDown & HidNpadButton_B))
             break;
-        }
 
-        if (kDown & HidNpadButton_B) {
-            if (!isWarningOnScreen) {
-                break;
-            } else {
-                isWarningOnScreen = false;
-            }
-        }
+        // Start ImGui frame
+        ImGui_ImplSDLRenderer2_NewFrame();
 
-        if (kDown & HidNpadButton_A) {
-            int bookIndex = 0;
-            for (const auto & entry : fs::directory_iterator(path)) {
-                string filename = entry.path().filename().string();
-                string extention = filename.substr(filename.find_last_of("."));
+        // Hardcode display parameters for Switch (workaround SDL2 reporting issues)
+        ImGuiIO& io = ImGui::GetIO();
+        io.DisplaySize = ImVec2(1280.0f, 720.0f);
+        io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+        if (io.DeltaTime <= 0.0f || io.DeltaTime > 1.0f)
+            io.DeltaTime = 1.0f / 60.0f;
 
-                if (contains(allowedExtentions, extention)) {
-                    if (bookIndex == choosenIndex) {
-                        if (contains(warnedExtentions, extention)) {
-                            /*#ifdef EXPERIMENTAL
-                                SDL_DrawImage(RENDERER, warning, 5, 10 + (40 * choosingIndex));
-                            #endif*/
-                            if (isWarningOnScreen) {
-                                goto OPEN_BOOK;
-                            } else {
-                                isWarningOnScreen = true;
-                            }
-                        } else {
-                            OPEN_BOOK:
-                                string book = path + "/" + filename;
-                                if (amountOfFiles == 0) {
-        LOG_W("No books found in: %s", path.c_str());
-    }
+        ImGui::NewFrame();
 
-    LOG_I("Opening book: %s", book.c_str());
+        UpdateImGuiInput(pad);
+        SetSwitchTheme(configDarkMode);
 
-                                Menu_OpenBook((char*) book.c_str());
-                                readingBook = true;
-                                break;
-                        }
-                    }
+        // ---- Main fullscreen window ----
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        ImGui::SetNextWindowSize(ImVec2(1280, 720));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24, 24));
+        ImGui::Begin("BookChooser", nullptr,
+            ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus |
+            ImGuiWindowFlags_NoNavFocus);
+        ImGui::PopStyleVar();
 
-                    bookIndex++;
-                }
-            }
-        }
+        // ---- Header ----
+        ImVec4 accentColor = configDarkMode ? ImVec4(0.00f, 0.82f, 1.00f, 1.00f) : ImVec4(0.00f, 0.55f, 0.75f, 1.00f);
+        ImGui::PushStyleColor(ImGuiCol_Text, accentColor);
+        ImGui::Text("eBook Reader");
+        ImGui::PopStyleColor();
 
-        if (kDown & HidNpadButton_Up || kDown & HidNpadButton_StickRUp) {
-            if (choosenIndex != 0 && !isWarningOnScreen) {
-                choosenIndex--;
-            } else if (choosenIndex == 0) {
-                choosenIndex = amountOfFiles-1;
-            }
-        }
-
-        if (kDown & HidNpadButton_Down || kDown & HidNpadButton_StickRDown) {
-            if (choosenIndex == amountOfFiles-1) {
-                choosenIndex = 0;
-            } else if (choosenIndex < amountOfFiles-1 && !isWarningOnScreen) {
-                choosenIndex++;
-            }
-        }
-
-        if (kUp & HidNpadButton_Minus) {
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 200);
+        if (ImGui::Button(configDarkMode ? "Light Theme" : "Dark Theme", ImVec2(180, 40))) {
             configDarkMode = !configDarkMode;
         }
 
-        int exitWidth = 0;
-        TTF_SizeText(ROBOTO_20, "Exit", &exitWidth, NULL);
-        SDL_DrawButtonPrompt(RENDERER, button_b, ROBOTO_20, textColor, "Exit", windowX - exitWidth - 50, windowY - 10, 35, 35, 5, 0);
+        ImGui::Dummy(ImVec2(0, 8));
+        ImGui::Separator();
+        ImGui::Dummy(ImVec2(0, 8));
 
-        int themeWidth = 0;
-        TTF_SizeText(ROBOTO_20, "Switch Theme", &themeWidth, NULL);
-        SDL_DrawButtonPrompt(RENDERER, button_minus, ROBOTO_20, textColor, "Switch Theme", windowX - themeWidth - 50, windowY - 40, 35, 35, 5, 0);
+        // ---- Stats bar ----
+        ImGui::Text("Books: %d", (int)books.size());
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 350);
+        ImGui::TextDisabled("Library: %s", booksDir.c_str());
 
-        int choosingIndex = 0;
-        for (const auto & entry : fs::directory_iterator(path)) {
-            string filename = entry.path().filename().string();
-            string extention = filename.substr(filename.find_last_of("."));
+        ImGui::Dummy(ImVec2(0, 8));
 
-            if (contains(allowedExtentions, extention)) {
-                if (choosenIndex == choosingIndex) {
-                    SDL_DrawRect(RENDERER, 15, 15 + (40 * choosingIndex), 1265, 40, configDarkMode ? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
+        // ---- Filters ----
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Search:");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(400);
+        bool filterTextChanged = ImGui::InputText("##filter", filterBuffer, sizeof(filterBuffer));
+
+        wasFilterActive = ImGui::IsItemActive();
+
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(130);
+        if (ImGui::BeginCombo("##extfilter", extItems[extFilter])) {
+            for (int n = 0; n < IM_ARRAYSIZE(extItems); n++) {
+                bool isSelected = (extFilter == n);
+                if (ImGui::Selectable(extItems[n], isSelected))
+                    extFilter = n;
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+        // Rebuild filtered list if needed
+        if (filterTextChanged || extFilter != prevExtFilter) {
+            prevExtFilter = extFilter;
+            filteredIndices.clear();
+
+            string filter = filterBuffer;
+            transform(filter.begin(), filter.end(), filter.begin(), ::tolower);
+
+            for (int i = 0; i < (int)books.size(); i++) {
+                const BookEntry& book = books[i];
+
+                // Text filter
+                if (!filter.empty()) {
+                    string nameLower = book.filename;
+                    transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::tolower);
+                    if (nameLower.find(filter) == string::npos)
+                        continue;
                 }
 
-                if (contains(warnedExtentions, extention)) {
-                    SDL_DrawImage(RENDERER, warning, 25, 18 + (40 * choosingIndex));
-                }
-                
-                SDL_DrawText(RENDERER, ROBOTO_25, 70, 20 + (40 * choosingIndex), textColor, entry.path().filename().c_str());
-
-                if (isWarningOnScreen) {
-                    if (!configDarkMode) { // Display a dimmed background if on light mode
-                        SDL_DrawRect(RENDERER, 0, 0, 1280, 720, SDL_MakeColour(50, 50, 50, 150));
-                    }
-
-                    SDL_DrawRect(RENDERER, (windowX - warningWidth) / 2, (windowY - warningHeight) / 2, warningWidth, warningHeight, configDarkMode ? HINT_COLOUR_DARK : HINT_COLOUR_LIGHT);
-                    SDL_DrawText(RENDERER, ROBOTO_30, (windowX - warningWidth) / 2 + 15, (windowY - warningHeight) / 2 + 15, textColor, "This file is not yet fully supported, and may");
-                    SDL_DrawText(RENDERER, ROBOTO_30, (windowX - warningWidth) / 2 + 15, (windowY - warningHeight) / 2 + 50, textColor, "cause a system, or app crash.");
-                    SDL_DrawText(RENDERER, ROBOTO_20, (windowX - warningWidth) / 2 + warningWidth - 250, (windowY - warningHeight) / 2 + warningHeight - 30, textColor, "\"A\" - Read");
-                    SDL_DrawText(RENDERER, ROBOTO_20, (windowX - warningWidth) / 2 + warningWidth - 125, (windowY - warningHeight) / 2 + warningHeight - 30, textColor, "\"B\" - Cancel.");
+                // Extension filter
+                if (extFilter > 0) {
+                    string targetExt = string(".") + extItems[extFilter];
+                    transform(targetExt.begin(), targetExt.end(), targetExt.begin(), ::tolower);
+                    string bookExtLower = book.ext;
+                    transform(bookExtLower.begin(), bookExtLower.end(), bookExtLower.begin(), ::tolower);
+                    if (bookExtLower != targetExt)
+                        continue;
                 }
 
-                choosingIndex++;
+                filteredIndices.push_back(i);
             }
         }
 
+        ImGui::Dummy(ImVec2(0, 8));
+
+        // ---- Book list ----
+        ImGui::BeginChild("BookList", ImVec2(0, -60), ImGuiChildFlags_NavFlattened);
+
+        for (int i = 0; i < (int)filteredIndices.size(); i++) {
+            int bookIdx = filteredIndices[i];
+            const BookEntry& book = books[bookIdx];
+
+            ImGui::PushID(bookIdx);
+
+            // Invisible selectable handles focus + activation
+            bool activated = ImGui::Selectable("##hidden", false, 0, ImVec2(0, 48));
+
+            // Custom drawing on top of the selectable
+            ImVec2 min = ImGui::GetItemRectMin();
+            ImVec2 max = ImGui::GetItemRectMax();
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
+            float textY = min.y + (48.0f - ImGui::GetFontSize()) * 0.5f;
+            float x = min.x + 14.0f;
+
+            // Warning indicator bar for experimental formats
+            if (book.isExperimental) {
+                drawList->AddRectFilled(
+                    ImVec2(min.x + 4, min.y + 10),
+                    ImVec2(min.x + 8, max.y - 10),
+                    IM_COL32(255, 180, 0, 255), 2.0f);
+                x += 12.0f;
+            }
+
+            // Filename
+            drawList->AddText(ImVec2(x, textY), ImGui::GetColorU32(ImGuiCol_Text), book.filename.c_str());
+
+            // Extension badge on the right
+            float badgeTextWidth = ImGui::CalcTextSize(book.ext.c_str()).x;
+            float badgeWidth = badgeTextWidth + 14.0f;
+            float badgeX = max.x - badgeWidth - 14.0f;
+            ImU32 badgeBg = configDarkMode ? IM_COL32(60, 60, 60, 200) : IM_COL32(200, 200, 200, 200);
+            ImU32 badgeText = configDarkMode ? IM_COL32(160, 160, 160, 255) : IM_COL32(80, 80, 80, 255);
+            drawList->AddRectFilled(
+                ImVec2(badgeX, textY - 2),
+                ImVec2(badgeX + badgeWidth, textY + ImGui::GetFontSize() + 2),
+                badgeBg, 4.0f);
+            drawList->AddText(
+                ImVec2(badgeX + 7, textY), badgeText, book.ext.c_str());
+
+            if (activated) {
+                if (book.isExperimental) {
+                    warningBookIdx = bookIdx;
+                    showWarningModal = true;
+                } else {
+                    bookToOpen = book.path;
+                    openBook = true;
+                }
+            }
+
+            ImGui::PopID();
+        }
+
+        if (filteredIndices.empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+            ImGui::TextWrapped("No books found.\n\nPlace .pdf, .epub, .cbz, or .xps files in:\n%s", booksDir.c_str());
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::EndChild();
+
+        // ---- Footer hints ----
+        ImGui::Separator();
+        ImGui::Dummy(ImVec2(0, 4));
+        ImGui::TextDisabled("[A] Open Book    [B] Back    [+] Exit    [-] Toggle Theme");
+
+        ImGui::End();
+
+        // ---- Warning modal ----
+        if (showWarningModal) {
+            ImGui::OpenPopup("Warning");
+        }
+
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(600, 220));
+
+        if (ImGui::BeginPopupModal("Warning", &showWarningModal,
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove))
+        {
+            ImGui::Text("This file format is not fully supported.");
+            ImGui::Text("It may cause the system or app to crash.");
+            ImGui::Dummy(ImVec2(0, 15));
+
+            float buttonWidth = 160.0f;
+            float windowWidth = ImGui::GetWindowSize().x;
+            ImGui::SetCursorPosX((windowWidth - buttonWidth * 2.0f - 20.0f) * 0.5f);
+
+            if (ImGui::Button("Read Anyway", ImVec2(buttonWidth, 40))) {
+                ImGui::CloseCurrentPopup();
+                showWarningModal = false;
+                if (warningBookIdx >= 0) {
+                    bookToOpen = books[warningBookIdx].path;
+                    openBook = true;
+                }
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(buttonWidth, 40))) {
+                ImGui::CloseCurrentPopup();
+                showWarningModal = false;
+                warningBookIdx = -1;
+            }
+
+            ImGui::EndPopup();
+        }
+
+        // ---- SDL text input handling (for OSK) ----
+        if (io.WantTextInput) {
+            if (!SDL_IsTextInputActive())
+                SDL_StartTextInput();
+        } else {
+            if (SDL_IsTextInputActive())
+                SDL_StopTextInput();
+        }
+
+        // ---- Render ----
+        ImGui::Render();
+        SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 255);
+        SDL_RenderClear(RENDERER);
+        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), RENDERER);
         SDL_RenderPresent(RENDERER);
+
+        // ---- Open book if requested ----
+        if (openBook) {
+            openBook = false;
+            LOG_I("Opening book: %s", bookToOpen.c_str());
+            Menu_OpenBook((char*)bookToOpen.c_str());
+            break; // exit chooser after reader returns (matches original behavior)
+        }
     }
+
+    if (SDL_IsTextInputActive())
+        SDL_StopTextInput();
 }

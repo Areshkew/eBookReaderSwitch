@@ -39,9 +39,9 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))-dev
 BUILD		:=	build
-SOURCES		:=	source source/menus/book source/menus/book-chooser source/helpers
+SOURCES		:=	source source/menus/book source/menus/book-chooser source/helpers third_party/imgui
 DATA		:=	data
-INCLUDES    :=  include include/menus/book include/menus/book-chooser include/helpers
+INCLUDES    :=  include include/menus/book include/menus/book-chooser include/helpers third_party/imgui
 ROMFS	    :=	romfs
 
 VERSION_MAJOR := 0
