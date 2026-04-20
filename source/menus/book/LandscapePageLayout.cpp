@@ -28,6 +28,12 @@ void LandscapePageLayout::draw_page() {
     SDL_RenderCopyEx(RENDERER, page_texture, NULL, &rect, 90, NULL, SDL_FLIP_NONE);
 }
 
+void LandscapePageLayout::pan(float dx, float dy) {
+    // move_page(x,y) in landscape maps x→screen-y and y→screen-x,
+    // so swap arguments to align with screen-space dx/dy.
+    move_page(dy, dx);
+}
+
 void LandscapePageLayout::move_page(float x, float y) {
     float w = page_bounds.x1 * zoom, h = page_bounds.y1 * zoom;
     

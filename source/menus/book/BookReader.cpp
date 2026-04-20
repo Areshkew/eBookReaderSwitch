@@ -171,8 +171,12 @@ void BookReader::draw() {
         float displayW = io.DisplaySize.x;
         float displayH = io.DisplaySize.y;
 
+        bool isPortrait = (_currentPageLayout == BookPageLayoutPortrait);
+
+        // Bar dimensions
         const float topBarH = 55.0f;
         const float bottomBarH = 70.0f;
+        const float landBarW = 90.0f;
 
         // Distinct bar colours so they’re visible against the page
         ImVec4 barBg = configDarkMode
@@ -187,118 +191,243 @@ void BookReader::draw() {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
         ImGui::PushStyleColor(ImGuiCol_WindowBg, barBg);
 
-        // --- Top Bar ---
-        ImGui::SetNextWindowPos(ImVec2(0, 0));
-        ImGui::SetNextWindowSize(ImVec2(displayW, topBarH));
-        ImGui::Begin("TopBar", nullptr,
-            ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
-            ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs |
-            ImGuiWindowFlags_NoNavFocus);
-
-        // Back button
-        if (ImGui::Button("<", ImVec2(36, 34))) {
-            requestExit = true;
-        }
-        if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Back to library");
-        }
-
-        ImGui::SameLine();
-
-        // Book title centred
-        float availW = ImGui::GetContentRegionAvail().x;
-        float titleWidth = ImGui::CalcTextSize(book_name.c_str()).x;
-        float titleX = (availW - titleWidth) * 0.5f;
-        if (titleX < 0) titleX = 0;
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + titleX);
-        ImGui::Text("%s", book_name.c_str());
-
-        // Right-side placeholder icons
-        ImGui::SameLine();
-        float rightX = displayW - 240;
-        ImGui::SetCursorPosX(rightX);
-        if (ImGui::Button("Aa", ImVec2(36, 34))) { /* placeholder: text settings */ }
-        ImGui::SameLine();
-        if (ImGui::Button("::", ImVec2(36, 34))) { /* placeholder: TOC */ }
-        ImGui::SameLine();
-        if (ImGui::Button("Bm", ImVec2(36, 34))) { /* placeholder: bookmark */ }
-        ImGui::SameLine();
-        if (ImGui::Button("Q", ImVec2(36, 34))) { /* placeholder: search */ }
-        ImGui::SameLine();
-        if (ImGui::Button(":", ImVec2(36, 34))) { /* placeholder: more */ }
-
-        ImGui::End();
-
-        // Separator line under top bar
         ImDrawList* drawList = ImGui::GetForegroundDrawList();
-        drawList->AddLine(ImVec2(0, topBarH), ImVec2(displayW, topBarH),
-            ImGui::ColorConvertFloat4ToU32(sepCol), 1.0f);
-
-        // --- Bottom Bar ---
-        float bottomY = displayH - bottomBarH;
-        ImGui::SetNextWindowPos(ImVec2(0, bottomY));
-        ImGui::SetNextWindowSize(ImVec2(displayW, bottomBarH));
-        ImGui::Begin("BottomBar", nullptr,
-            ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
-            ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs |
-            ImGuiWindowFlags_NoNavFocus);
-
-        // Page / progress info
-        int cur = layout->current_page() + 1;
-        int tot = layout->total_pages();
-        int pct = tot > 0 ? (cur * 100 / tot) : 0;
-
-        char infoBuf[128];
-        snprintf(infoBuf, sizeof(infoBuf), "Page %d of %d  |  %d%%", cur, tot, pct);
-        float infoWidth = ImGui::CalcTextSize(infoBuf).x;
-        ImGui::SetCursorPosX((displayW - infoWidth) * 0.5f);
-        ImGui::Text("%s", infoBuf);
-
-        // Layout toggle buttons
-        float btnW = 90.0f;
-        float gap = 16.0f;
-        float groupW = btnW * 2 + gap;
-        ImGui::SetCursorPosX((displayW - groupW) * 0.5f);
-        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4);
-
         ImVec4 activeBtnCol = ImGui::GetStyle().Colors[ImGuiCol_ButtonActive];
-        if (_currentPageLayout == BookPageLayoutPortrait) {
-            ImGui::PushStyleColor(ImGuiCol_Button, activeBtnCol);
-        }
-        if (ImGui::Button("[|]", ImVec2(btnW, 30))) {
-            if (_currentPageLayout != BookPageLayoutPortrait)
-                switch_page_layout();
-        }
-        if (_currentPageLayout == BookPageLayoutPortrait) {
-            ImGui::PopStyleColor();
-        }
-        if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Portrait layout");
-        }
 
-        ImGui::SameLine(0, gap);
+        if (isPortrait) {
+            // ========== PORTRAIT: horizontal bars ==========
 
-        if (_currentPageLayout == BookPageLayoutLandscape) {
-            ImGui::PushStyleColor(ImGuiCol_Button, activeBtnCol);
-        }
-        if (ImGui::Button("[| |]", ImVec2(btnW, 30))) {
-            if (_currentPageLayout != BookPageLayoutLandscape)
-                switch_page_layout();
-        }
-        if (_currentPageLayout == BookPageLayoutLandscape) {
-            ImGui::PopStyleColor();
-        }
-        if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Landscape layout");
-        }
+            // --- Top Bar ---
+            ImGui::SetNextWindowPos(ImVec2(0, 0));
+            ImGui::SetNextWindowSize(ImVec2(displayW, topBarH));
+            ImGui::Begin("TopBar", nullptr,
+                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
+                ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs |
+                ImGuiWindowFlags_NoNavFocus);
 
-        ImGui::End();
+            if (ImGui::Button("<", ImVec2(36, 34))) {
+                requestExit = true;
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Back to library");
+            }
 
-        // Separator line above bottom bar
-        drawList->AddLine(ImVec2(0, bottomY), ImVec2(displayW, bottomY),
-            ImGui::ColorConvertFloat4ToU32(sepCol), 1.0f);
+            ImGui::SameLine();
+            float availW = ImGui::GetContentRegionAvail().x;
+            float titleWidth = ImGui::CalcTextSize(book_name.c_str()).x;
+            float titleX = (availW - titleWidth) * 0.5f;
+            if (titleX < 0) titleX = 0;
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + titleX);
+            ImGui::Text("%s", book_name.c_str());
+
+            ImGui::SameLine();
+            ImGui::SetCursorPosX(displayW - 240);
+            if (ImGui::Button("Aa", ImVec2(36, 34))) { /* placeholder: text settings */ }
+            ImGui::SameLine();
+            if (ImGui::Button("::", ImVec2(36, 34))) { /* placeholder: TOC */ }
+            ImGui::SameLine();
+            if (ImGui::Button("Bm", ImVec2(36, 34))) { /* placeholder: bookmark */ }
+            ImGui::SameLine();
+            if (ImGui::Button("Q", ImVec2(36, 34))) { /* placeholder: search */ }
+            ImGui::SameLine();
+            if (ImGui::Button(":", ImVec2(36, 34))) { /* placeholder: more */ }
+
+            ImGui::End();
+            drawList->AddLine(ImVec2(0, topBarH), ImVec2(displayW, topBarH),
+                ImGui::ColorConvertFloat4ToU32(sepCol), 1.0f);
+
+            // --- Bottom Bar ---
+            float bottomY = displayH - bottomBarH;
+            ImGui::SetNextWindowPos(ImVec2(0, bottomY));
+            ImGui::SetNextWindowSize(ImVec2(displayW, bottomBarH));
+            ImGui::Begin("BottomBar", nullptr,
+                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
+                ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs |
+                ImGuiWindowFlags_NoNavFocus);
+
+            int cur = layout->current_page() + 1;
+            int tot = layout->total_pages();
+            int pct = tot > 0 ? (cur * 100 / tot) : 0;
+            char infoBuf[128];
+            snprintf(infoBuf, sizeof(infoBuf), "Page %d of %d  |  %d%%", cur, tot, pct);
+            float infoWidth = ImGui::CalcTextSize(infoBuf).x;
+            ImGui::SetCursorPosX((displayW - infoWidth) * 0.5f);
+            ImGui::Text("%s", infoBuf);
+
+            float btnW = 90.0f;
+            float gap = 16.0f;
+            float groupW = btnW * 2 + gap;
+            ImGui::SetCursorPosX((displayW - groupW) * 0.5f);
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4);
+
+            if (_currentPageLayout == BookPageLayoutPortrait) {
+                ImGui::PushStyleColor(ImGuiCol_Button, activeBtnCol);
+            }
+            if (ImGui::Button("[|]", ImVec2(btnW, 30))) {
+                if (_currentPageLayout != BookPageLayoutPortrait)
+                    switch_page_layout();
+            }
+            if (_currentPageLayout == BookPageLayoutPortrait) {
+                ImGui::PopStyleColor();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Portrait layout");
+            }
+
+            ImGui::SameLine(0, gap);
+            if (_currentPageLayout == BookPageLayoutLandscape) {
+                ImGui::PushStyleColor(ImGuiCol_Button, activeBtnCol);
+            }
+            if (ImGui::Button("[| |]", ImVec2(btnW, 30))) {
+                if (_currentPageLayout != BookPageLayoutLandscape)
+                    switch_page_layout();
+            }
+            if (_currentPageLayout == BookPageLayoutLandscape) {
+                ImGui::PopStyleColor();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Landscape layout");
+            }
+
+            ImGui::End();
+            drawList->AddLine(ImVec2(0, bottomY), ImVec2(displayW, bottomY),
+                ImGui::ColorConvertFloat4ToU32(sepCol), 1.0f);
+
+        } else {
+            // ========== LANDSCAPE: vertical bars ==========
+            // Page is rotated 90° clockwise, so:
+            //   page top    -> screen right edge
+            //   page bottom -> screen left edge
+            // Right edge bar = former top bar (back, title, icons)
+            // Left edge bar  = former bottom bar (page info, layout)
+
+            const float landBarW = 110.0f;
+            auto drawTextBottomToTop = [&](const std::string& text, float cx, float startY, float maxH) {
+                float y = startY;
+                float charH = ImGui::GetTextLineHeightWithSpacing();
+                float totalH = text.length() * charH;
+                if (totalH > maxH) {
+                    totalH = maxH;
+                }
+                // Clamp startY so text fits within maxH upward
+                float bottomY = startY;
+                if (bottomY - totalH < 10.0f) {
+                    bottomY = 10.0f + totalH;
+                }
+                y = bottomY;
+                for (size_t i = 0; i < text.length() && (bottomY - y) < maxH; ++i) {
+                    char buf[2] = {text[i], '\0'};
+                    ImVec2 ts = ImGui::CalcTextSize(buf);
+                    ImGui::SetCursorPosX(cx + (landBarW - 28 - ts.x) * 0.5f);
+                    ImGui::SetCursorPosY(y - ts.y);
+                    ImGui::Text("%s", buf);
+                    y -= ts.y;
+                }
+            };
+
+            // --- Right Bar (top content) ---
+            float rightX = displayW - landBarW;
+            ImGui::SetNextWindowPos(ImVec2(rightX, 0));
+            ImGui::SetNextWindowSize(ImVec2(landBarW, displayH));
+            ImGui::Begin("RightBar", nullptr,
+                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
+                ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs |
+                ImGuiWindowFlags_NoNavFocus);
+
+            if (ImGui::Button("<", ImVec2(82, 34))) {
+                requestExit = true;
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Back to library");
+            }
+
+            // Title written vertically bottom-to-top so it reads naturally
+            // when the device is held in landscape (tilt left to read)
+            std::string displayTitle = book_name;
+            if (displayTitle.length() > 40) {
+                displayTitle = displayTitle.substr(0, 37) + "...";
+            }
+            float cxBase = ImGui::GetCursorPosX();
+            drawTextBottomToTop(displayTitle, cxBase, displayH - 210, displayH - 300);
+
+            // Icon buttons at the bottom of the right bar
+            float by = displayH - 190;
+            ImGui::SetCursorPosY(by);
+            if (ImGui::Button("Aa", ImVec2(82, 34))) { /* placeholder: text settings */ }
+            ImGui::Dummy(ImVec2(0, 6));
+            if (ImGui::Button("::", ImVec2(82, 34))) { /* placeholder: TOC */ }
+            ImGui::Dummy(ImVec2(0, 6));
+            if (ImGui::Button("Bm", ImVec2(82, 34))) { /* placeholder: bookmark */ }
+            ImGui::Dummy(ImVec2(0, 6));
+            if (ImGui::Button("Q", ImVec2(82, 34))) { /* placeholder: search */ }
+            ImGui::Dummy(ImVec2(0, 6));
+            if (ImGui::Button(":", ImVec2(82, 34))) { /* placeholder: more */ }
+
+            ImGui::End();
+            drawList->AddLine(ImVec2(rightX, 0), ImVec2(rightX, displayH),
+                ImGui::ColorConvertFloat4ToU32(sepCol), 1.0f);
+
+            // --- Left Bar (bottom content) ---
+            ImGui::SetNextWindowPos(ImVec2(0, 0));
+            ImGui::SetNextWindowSize(ImVec2(landBarW, displayH));
+            ImGui::Begin("LeftBar", nullptr,
+                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
+                ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs |
+                ImGuiWindowFlags_NoNavFocus);
+
+            // Layout toggle buttons at the top of the left bar
+            float btnW = 82.0f;
+            if (_currentPageLayout == BookPageLayoutPortrait) {
+                ImGui::PushStyleColor(ImGuiCol_Button, activeBtnCol);
+            }
+            if (ImGui::Button("[|]", ImVec2(btnW, 30))) {
+                if (_currentPageLayout != BookPageLayoutPortrait)
+                    switch_page_layout();
+            }
+            if (_currentPageLayout == BookPageLayoutPortrait) {
+                ImGui::PopStyleColor();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Portrait layout");
+            }
+
+            ImGui::Dummy(ImVec2(0, 6));
+            if (_currentPageLayout == BookPageLayoutLandscape) {
+                ImGui::PushStyleColor(ImGuiCol_Button, activeBtnCol);
+            }
+            if (ImGui::Button("[| |]", ImVec2(btnW, 30))) {
+                if (_currentPageLayout != BookPageLayoutLandscape)
+                    switch_page_layout();
+            }
+            if (_currentPageLayout == BookPageLayoutLandscape) {
+                ImGui::PopStyleColor();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Landscape layout");
+            }
+
+            // Page info drawn bottom-to-top at the bottom of the left bar
+            int cur = layout->current_page() + 1;
+            int tot = layout->total_pages();
+            int pct = tot > 0 ? (cur * 100 / tot) : 0;
+            char infoBuf[64];
+            snprintf(infoBuf, sizeof(infoBuf), "Pg %d/%d", cur, tot);
+            std::string infoLine1 = infoBuf;
+            snprintf(infoBuf, sizeof(infoBuf), "%d%%", pct);
+            std::string infoLine2 = infoBuf;
+            std::string infoText = infoLine1 + " " + infoLine2;
+
+            float cxBaseL = ImGui::GetCursorPosX();
+            drawTextBottomToTop(infoText, cxBaseL, displayH - 20, 120);
+
+            ImGui::End();
+            drawList->AddLine(ImVec2(landBarW, 0), ImVec2(landBarW, displayH),
+                ImGui::ColorConvertFloat4ToU32(sepCol), 1.0f);
+        }
 
         ImGui::PopStyleColor();
         ImGui::PopStyleVar(3);

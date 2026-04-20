@@ -18,6 +18,7 @@ extern "C" {
 struct TouchTracker {
     HidTouchScreenState prevState = {};
     int pinchCooldown = 0;
+    int maxTouchCount = 0;
     bool isDragging = false;
     bool inUIBar = false;
     float dragStartX = 0, dragStartY = 0;
@@ -34,28 +35,49 @@ static float touchDistance(const HidTouchState& a, const HidTouchState& b) {
     return std::sqrt(dx * dx + dy * dy);
 }
 
-static bool pointInUIBar(float x, float y, bool showUI) {
+static bool pointInUIBar(float x, float y, bool showUI, BookPageLayout layout) {
     if (!showUI) return false;
-    const float topBarH = 55.0f;
-    const float bottomBarH = 70.0f;
-    const float displayH = 720.0f;
-    return (y < topBarH) || (y > (displayH - bottomBarH));
+    if (layout == BookPageLayoutPortrait) {
+        const float topBarH = 55.0f;
+        const float bottomBarH = 70.0f;
+        const float displayH = 720.0f;
+        return (y < topBarH) || (y > (displayH - bottomBarH));
+    } else {
+        const float landBarW = 110.0f;
+        const float displayW = 1280.0f;
+        return (x < landBarW) || (x > (displayW - landBarW));
+    }
 }
 
 static void processTap(BookReader* reader, float x, float y) {
     if (reader->showUI) {
         // Tap anywhere in the page area hides the UI
-        if (!pointInUIBar(x, y, true)) {
+        if (!pointInUIBar(x, y, true, reader->currentPageLayout())) {
             reader->showUI = false;
         }
         // Taps inside UI bars are handled by ImGui via SDL events
     } else {
-        if (y < 108.0f) {
-            reader->showUI = true;
-        } else if (x < 427.0f) {
-            reader->previous_page(1);
-        } else if (x > 853.0f) {
-            reader->next_page(1);
+        if (reader->currentPageLayout() == BookPageLayoutPortrait) {
+            // Portrait: left/right thirds turn pages; top edge toggles UI
+            if (y < 108.0f) {
+                reader->showUI = true;
+            } else if (x < 427.0f) {
+                reader->previous_page(1);
+            } else if (x > 853.0f) {
+                reader->next_page(1);
+            }
+        } else {
+            // Landscape: right edge shows UI (page top is on the right).
+            // Page turns on top/bottom thirds in the middle area.
+            const float landBarW = 110.0f;
+            const float displayW = 1280.0f;
+            if (x > (displayW - landBarW)) {
+                reader->showUI = true;
+            } else if (y < 240.0f && x > landBarW) {
+                reader->previous_page(1);
+            } else if (y > 480.0f && x > landBarW) {
+                reader->next_page(1);
+            }
         }
     }
 }
@@ -101,6 +123,11 @@ void Menu_OpenBook(char *path) {
         HidTouchScreenState touchState = {0};
         bool hasTouch = hidGetTouchScreenStates(&touchState, 1);
 
+        if (hasTouch) {
+            s_tracker.maxTouchCount = (touchState.count > s_tracker.maxTouchCount)
+                ? touchState.count : s_tracker.maxTouchCount;
+        }
+
         if (hasTouch && touchState.count >= 2) {
             // ---- Pinch zoom ----
             float dist = touchDistance(touchState.touches[0], touchState.touches[1]);
@@ -117,7 +144,7 @@ void Menu_OpenBook(char *path) {
                     s_prevPinchDist = dist;
                 }
             }
-            s_tracker.pinchCooldown = 12;
+            s_tracker.pinchCooldown = 20;
             s_tracker.isDragging = false;
             s_tracker.inUIBar = false;
             s_tracker.hadTouch = true;
@@ -129,7 +156,7 @@ void Menu_OpenBook(char *path) {
             if (s_tracker.pinchCooldown > 0) {
                 s_tracker.pinchCooldown--;
             } else {
-                if (pointInUIBar(tx, ty, reader->showUI)) {
+                if (pointInUIBar(tx, ty, reader->showUI, reader->currentPageLayout())) {
                     s_tracker.inUIBar = true;
                 } else {
                     s_tracker.inUIBar = false;
@@ -166,12 +193,14 @@ void Menu_OpenBook(char *path) {
         } else {
             // No touches
             if (s_tracker.hadTouch && s_tracker.prevState.count == 1 &&
-                !s_tracker.isDragging && !s_tracker.inUIBar) {
+                !s_tracker.isDragging && !s_tracker.inUIBar &&
+                s_tracker.maxTouchCount < 2) {
                 processTap(reader, s_tracker.dragStartX, s_tracker.dragStartY);
             }
             s_tracker.isDragging = false;
             s_tracker.inUIBar = false;
             s_tracker.hadTouch = false;
+            s_tracker.maxTouchCount = 0;
             if (s_tracker.pinchCooldown > 0)
                 s_tracker.pinchCooldown--;
             s_prevPinchDist = 0.0f;

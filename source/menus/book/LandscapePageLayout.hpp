@@ -10,6 +10,7 @@ class LandscapePageLayout: public PageLayout
     
         void reset();
         void draw_page();
+        void pan(float dx, float dy);
     
     protected:
         void move_page(float x, float y);
