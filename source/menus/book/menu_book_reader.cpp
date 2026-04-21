@@ -39,7 +39,7 @@ static bool pointInUIBar(float x, float y, bool showUI, BookPageLayout layout) {
     if (!showUI) return false;
     if (layout == BookPageLayoutPortrait) {
         const float topBarH = 55.0f;
-        const float bottomBarH = 70.0f;
+        const float bottomBarH = 82.0f;
         const float displayH = 720.0f;
         return (y < topBarH) || (y > (displayH - bottomBarH));
     } else {

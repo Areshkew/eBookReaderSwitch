@@ -233,7 +233,7 @@ void BookReader::draw() {
 
         // Bar dimensions
         const float topBarH = 55.0f;
-        const float bottomBarH = 70.0f;
+        const float bottomBarH = 82.0f;
 
         // Distinct bar colours so they’re visible against the page
         ImVec4 barBg = configDarkMode
@@ -433,41 +433,41 @@ void BookReader::draw() {
             }
 
             // Icon buttons at the bottom of the right bar
-            float by = displayH - 190;
+            float by = displayH - 255;
             ImGui::SetCursorPosY(by);
-            if (ImGui::Button("##Text", ImVec2(82, 34))) { /* placeholder: text settings */ }
+            if (ImGui::Button("##Text", ImVec2(82, 30))) { /* placeholder: text settings */ }
             if (icon_text) {
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_text,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(28,28)),
-                    ImVec2(28,28), cos_a, sin_a);
+                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24)),
+                    ImVec2(24,24), cos_a, sin_a);
             }
-            ImGui::Dummy(ImVec2(0, 6));
-            if (ImGui::Button("##TOC", ImVec2(82, 34))) { /* placeholder: TOC */ }
+            ImGui::Dummy(ImVec2(0, 4));
+            if (ImGui::Button("##TOC", ImVec2(82, 30))) { /* placeholder: TOC */ }
             if (icon_toc) {
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_toc,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(28,28)),
-                    ImVec2(28,28), cos_a, sin_a);
+                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24)),
+                    ImVec2(24,24), cos_a, sin_a);
             }
-            ImGui::Dummy(ImVec2(0, 6));
-            if (ImGui::Button("##Bookmark", ImVec2(82, 34))) { /* placeholder: bookmark */ }
+            ImGui::Dummy(ImVec2(0, 4));
+            if (ImGui::Button("##Bookmark", ImVec2(82, 30))) { /* placeholder: bookmark */ }
             if (icon_bookmark) {
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_bookmark,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(28,28)),
-                    ImVec2(28,28), cos_a, sin_a);
+                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24)),
+                    ImVec2(24,24), cos_a, sin_a);
             }
-            ImGui::Dummy(ImVec2(0, 6));
-            if (ImGui::Button("##Search", ImVec2(82, 34))) { /* placeholder: search */ }
+            ImGui::Dummy(ImVec2(0, 4));
+            if (ImGui::Button("##Search", ImVec2(82, 30))) { /* placeholder: search */ }
             if (icon_search) {
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_search,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(28,28)),
-                    ImVec2(28,28), cos_a, sin_a);
+                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24)),
+                    ImVec2(24,24), cos_a, sin_a);
             }
-            ImGui::Dummy(ImVec2(0, 6));
-            if (ImGui::Button("##More", ImVec2(82, 34))) { /* placeholder: more */ }
+            ImGui::Dummy(ImVec2(0, 4));
+            if (ImGui::Button("##More", ImVec2(82, 30))) { /* placeholder: more */ }
             if (icon_more) {
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_more,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(28,28)),
-                    ImVec2(28,28), cos_a, sin_a);
+                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24)),
+                    ImVec2(24,24), cos_a, sin_a);
             }
 
             ImGui::End();
