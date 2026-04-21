@@ -40,6 +40,8 @@ class BookReader {
     
     private:
         void switch_current_page_layout(BookPageLayout bookPageLayout, int current_page);
+        void load_icons();
+        void free_icons();
     
         fz_document *doc = NULL;
     
@@ -47,6 +49,15 @@ class BookReader {
         PageLayout *layout = NULL;
     
         std::string book_name;
+
+        SDL_Texture* icon_back      = nullptr;
+        SDL_Texture* icon_text      = nullptr;
+        SDL_Texture* icon_toc       = nullptr;
+        SDL_Texture* icon_bookmark  = nullptr;
+        SDL_Texture* icon_search    = nullptr;
+        SDL_Texture* icon_more      = nullptr;
+        SDL_Texture* icon_portrait  = nullptr;
+        SDL_Texture* icon_landscape = nullptr;
 };
 
 #endif
