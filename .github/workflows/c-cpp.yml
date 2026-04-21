@@ -1,4 +1,4 @@
-name: eBookReaderSwitch CI pipeline
+name: Switchelf CI pipeline
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -11,7 +11,7 @@ jobs:
     steps:
     - run: apt update && apt -y install libfreetype6-dev
     - uses: actions/checkout@v1
-    - name: Get repo submoduels
+    - name: Get repo submodules
       run: |
         git submodule update --init --recursive
     - name: Cache MuPDF
@@ -19,13 +19,13 @@ jobs:
       with:
         path: mupdf/build
         key: ${{ runner.os }}-mupdf-${{ hashFiles('**/mupdf/PKGBUILD') }}
-        
-    - name: Building eBookReaderSwitch
+
+    - name: Building Switchelf
       run: |
         export NODEBUG=true
-        make mupdf && make -j$(nproc)
-        
+        make -j$(nproc)
+
     - uses: actions/upload-artifact@master
       with:
-        name: eBookReaderSwitch
-        path: eBookReaderSwitch.nro
+        name: Switchelf
+        path: dist/Switchelf.nro

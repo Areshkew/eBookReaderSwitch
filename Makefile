@@ -37,7 +37,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-TARGET		:=	$(notdir $(CURDIR))-dev
+TARGET		:=	Switchelf
 BUILD		:=	build
 SOURCES		:=	source source/menus/book source/menus/book-chooser source/helpers third_party/imgui
 DATA		:=	data
@@ -45,11 +45,11 @@ INCLUDES    :=  include include/menus/book include/menus/book-chooser include/he
 ROMFS	    :=	romfs
 
 VERSION_MAJOR := 0
-VERSION_MINOR := 4
+VERSION_MINOR := 5
 VERSION_MICRO := 0
 
-APP_TITLE   := eBookReader (DEV)
-APP_AUTHOR  := SeanOMik
+APP_TITLE   := Switchelf
+APP_AUTHOR  := Areshk
 APP_VERSION := ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_MICRO}-beta
 ICON := icon.jpg
 

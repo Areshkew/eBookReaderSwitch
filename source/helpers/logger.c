@@ -24,15 +24,15 @@ static void rotate_logs(void) {
     char new_path[256];
 
     for (int i = 4; i >= 1; i--) {
-        snprintf(old_path, sizeof(old_path), "%s/eBookReader.log.%d", LOGS_DIR, i);
-        snprintf(new_path, sizeof(new_path), "%s/eBookReader.log.%d", LOGS_DIR, i + 1);
+        snprintf(old_path, sizeof(old_path), "%s/Switchelf.log.%d", LOGS_DIR, i);
+        snprintf(new_path, sizeof(new_path), "%s/Switchelf.log.%d", LOGS_DIR, i + 1);
         if (FS_FileExists(old_path)) {
             remove(new_path);
             rename(old_path, new_path);
         }
     }
 
-    snprintf(new_path, sizeof(new_path), "%s/eBookReader.log.1", LOGS_DIR);
+    snprintf(new_path, sizeof(new_path), "%s/Switchelf.log.1", LOGS_DIR);
     remove(new_path);
     rename(LOG_FILE_CURRENT, new_path);
 }
