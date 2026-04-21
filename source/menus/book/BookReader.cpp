@@ -87,6 +87,11 @@ static ImVec2 CenteredIconPos(const ImRect& bb, const ImVec2& iconSize) {
                   bb.Min.y + (bb.GetHeight() - iconSize.y) * 0.5f);
 }
 
+static void DrawIconBgCircle(ImDrawList* dl, const ImVec2& pos, const ImVec2& size, ImU32 bgCol) {
+    ImVec2 center(pos.x + size.x * 0.5f, pos.y + size.y * 0.5f);
+    dl->AddCircleFilled(center, size.x * 0.55f, bgCol);
+}
+
 BookReader::BookReader(const char *path, int* result) {
     if (ctx == NULL) {
         ctx = fz_new_context(NULL, NULL, FZ_STORE_UNLIMITED);
@@ -243,6 +248,13 @@ void BookReader::draw() {
             ? ImVec4(0.30f, 0.30f, 0.30f, 1.00f)
             : ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
 
+        ImU32 iconTint = configDarkMode
+            ? IM_COL32(240, 240, 240, 255)
+            : IM_COL32(255, 255, 255, 255);
+        ImU32 iconBg   = configDarkMode
+            ? IM_COL32(200, 200, 200, 255)
+            : IM_COL32(0, 0, 0, 0);
+
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 10));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
@@ -270,7 +282,8 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 28) * 0.5f, min.y + (max.y - min.y - 28) * 0.5f);
-                drawList->AddImage((ImTextureID)icon_back, pos, ImVec2(pos.x + 28, pos.y + 28));
+                if (configDarkMode) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
+                drawList->AddImage((ImTextureID)icon_back, pos, ImVec2(pos.x + 28, pos.y + 28), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("Back to library");
@@ -291,7 +304,8 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 28) * 0.5f, min.y + (max.y - min.y - 28) * 0.5f);
-                drawList->AddImage((ImTextureID)icon_text, pos, ImVec2(pos.x + 28, pos.y + 28));
+                if (configDarkMode) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
+                drawList->AddImage((ImTextureID)icon_text, pos, ImVec2(pos.x + 28, pos.y + 28), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             ImGui::SameLine();
             if (ImGui::Button("##TOCP", ImVec2(36, 34))) { /* placeholder: TOC */ }
@@ -299,7 +313,8 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 28) * 0.5f, min.y + (max.y - min.y - 28) * 0.5f);
-                drawList->AddImage((ImTextureID)icon_toc, pos, ImVec2(pos.x + 28, pos.y + 28));
+                if (configDarkMode) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
+                drawList->AddImage((ImTextureID)icon_toc, pos, ImVec2(pos.x + 28, pos.y + 28), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             ImGui::SameLine();
             if (ImGui::Button("##BookmarkP", ImVec2(36, 34))) { /* placeholder: bookmark */ }
@@ -307,7 +322,8 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 28) * 0.5f, min.y + (max.y - min.y - 28) * 0.5f);
-                drawList->AddImage((ImTextureID)icon_bookmark, pos, ImVec2(pos.x + 28, pos.y + 28));
+                if (configDarkMode) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
+                drawList->AddImage((ImTextureID)icon_bookmark, pos, ImVec2(pos.x + 28, pos.y + 28), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             ImGui::SameLine();
             if (ImGui::Button("##SearchP", ImVec2(36, 34))) { /* placeholder: search */ }
@@ -315,7 +331,8 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 28) * 0.5f, min.y + (max.y - min.y - 28) * 0.5f);
-                drawList->AddImage((ImTextureID)icon_search, pos, ImVec2(pos.x + 28, pos.y + 28));
+                if (configDarkMode) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
+                drawList->AddImage((ImTextureID)icon_search, pos, ImVec2(pos.x + 28, pos.y + 28), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             ImGui::SameLine();
             if (ImGui::Button("##MoreP", ImVec2(36, 34))) { /* placeholder: more */ }
@@ -323,7 +340,8 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 28) * 0.5f, min.y + (max.y - min.y - 28) * 0.5f);
-                drawList->AddImage((ImTextureID)icon_more, pos, ImVec2(pos.x + 28, pos.y + 28));
+                if (configDarkMode) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
+                drawList->AddImage((ImTextureID)icon_more, pos, ImVec2(pos.x + 28, pos.y + 28), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
 
             ImGui::End();
@@ -366,7 +384,8 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 24) * 0.5f, min.y + (max.y - min.y - 24) * 0.5f);
-                drawList->AddImage((ImTextureID)icon_portrait, pos, ImVec2(pos.x + 24, pos.y + 24));
+                if (configDarkMode) DrawIconBgCircle(drawList, pos, ImVec2(24,24), iconBg);
+                drawList->AddImage((ImTextureID)icon_portrait, pos, ImVec2(pos.x + 24, pos.y + 24), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             if (_currentPageLayout == BookPageLayoutPortrait) {
                 ImGui::PopStyleColor();
@@ -387,7 +406,8 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 24) * 0.5f, min.y + (max.y - min.y - 24) * 0.5f);
-                drawList->AddImage((ImTextureID)icon_landscape, pos, ImVec2(pos.x + 24, pos.y + 24));
+                if (configDarkMode) DrawIconBgCircle(drawList, pos, ImVec2(24,24), iconBg);
+                drawList->AddImage((ImTextureID)icon_landscape, pos, ImVec2(pos.x + 24, pos.y + 24), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             if (_currentPageLayout == BookPageLayoutLandscape) {
                 ImGui::PopStyleColor();
@@ -424,9 +444,9 @@ void BookReader::draw() {
                 requestExit = true;
             }
             if (icon_back) {
-                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_back,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(28,28)),
-                    ImVec2(28,28), cos_a, sin_a);
+                ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(28,28));
+                if (configDarkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(28,28), iconBg);
+                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_back, iconPos, ImVec2(28,28), cos_a, sin_a, iconTint);
             }
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("Back to library");
@@ -437,37 +457,37 @@ void BookReader::draw() {
             ImGui::SetCursorPosY(by);
             if (ImGui::Button("##Text", ImVec2(82, 30))) { /* placeholder: text settings */ }
             if (icon_text) {
-                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_text,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24)),
-                    ImVec2(24,24), cos_a, sin_a);
+                ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
+                if (configDarkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_text, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
             ImGui::Dummy(ImVec2(0, 4));
             if (ImGui::Button("##TOC", ImVec2(82, 30))) { /* placeholder: TOC */ }
             if (icon_toc) {
-                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_toc,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24)),
-                    ImVec2(24,24), cos_a, sin_a);
+                ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
+                if (configDarkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_toc, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
             ImGui::Dummy(ImVec2(0, 4));
             if (ImGui::Button("##Bookmark", ImVec2(82, 30))) { /* placeholder: bookmark */ }
             if (icon_bookmark) {
-                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_bookmark,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24)),
-                    ImVec2(24,24), cos_a, sin_a);
+                ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
+                if (configDarkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_bookmark, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
             ImGui::Dummy(ImVec2(0, 4));
             if (ImGui::Button("##Search", ImVec2(82, 30))) { /* placeholder: search */ }
             if (icon_search) {
-                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_search,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24)),
-                    ImVec2(24,24), cos_a, sin_a);
+                ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
+                if (configDarkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_search, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
             ImGui::Dummy(ImVec2(0, 4));
             if (ImGui::Button("##More", ImVec2(82, 30))) { /* placeholder: more */ }
             if (icon_more) {
-                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_more,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24)),
-                    ImVec2(24,24), cos_a, sin_a);
+                ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
+                if (configDarkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_more, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
 
             ImGui::End();
@@ -493,9 +513,9 @@ void BookReader::draw() {
                     switch_page_layout();
             }
             if (icon_portrait) {
-                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_portrait,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24)),
-                    ImVec2(24,24), cos_a, sin_a);
+                ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
+                if (configDarkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_portrait, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
             if (_currentPageLayout == BookPageLayoutPortrait) {
                 ImGui::PopStyleColor();
@@ -513,9 +533,9 @@ void BookReader::draw() {
                     switch_page_layout();
             }
             if (icon_landscape) {
-                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_landscape,
-                    CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24)),
-                    ImVec2(24,24), cos_a, sin_a);
+                ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
+                if (configDarkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                DrawRotatedIcon(fgDrawList, (ImTextureID)icon_landscape, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
             if (_currentPageLayout == BookPageLayoutLandscape) {
                 ImGui::PopStyleColor();
