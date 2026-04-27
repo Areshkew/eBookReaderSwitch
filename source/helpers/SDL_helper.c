@@ -1,5 +1,5 @@
 #include "common.h"
-#include "sdl_helper.h"
+#include "SDL_helper.h"
 #include "logger.h"
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
@@ -43,6 +43,9 @@ void SDL_DrawRotatedText(SDL_Renderer *renderer, TTF_Font *font, double rotation
 	SDL_Rect position;
 	position.x = x; position.y = y;
 	SDL_QueryTexture(texture, NULL, NULL, &position.w, &position.h);
+	SDL_Point center = {position.w / 2, position.h / 2};
+    SDL_Rect crop = {0, 0, &position.w, &position.h};
+
 	SDL_SetRenderTarget(renderer, texture);
 	SDL_RenderCopyEx(RENDERER, texture, NULL, &position, rotation, NULL, SDL_FLIP_NONE);
 	SDL_SetRenderTarget(renderer, NULL);

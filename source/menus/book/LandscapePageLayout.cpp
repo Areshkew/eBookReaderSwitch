@@ -1,9 +1,8 @@
-#include "landscape_page_layout.hpp"
-#include "app.h"
+#include "LandscapePageLayout.hpp"
+#include "common.h"
 #include <algorithm>
 
-LandscapePageLayout::LandscapePageLayout(App& app, fz_document *doc, int current_page)
-    : PageLayout(app, doc, current_page) {
+LandscapePageLayout::LandscapePageLayout(fz_document *doc, int current_page):PageLayout(doc, current_page) {
     int w = viewport.w;
     viewport.w = viewport.h;
     viewport.h = w;
@@ -26,10 +25,12 @@ void LandscapePageLayout::draw_page() {
     rect.w = w;
     rect.h = h;
     
-    SDL_RenderCopyEx(app_.renderer, page_texture, NULL, &rect, 90, NULL, SDL_FLIP_NONE);
+    SDL_RenderCopyEx(RENDERER, page_texture, NULL, &rect, 90, NULL, SDL_FLIP_NONE);
 }
 
 void LandscapePageLayout::pan(float dx, float dy) {
+    // move_page(x,y) in landscape maps x→screen-y and y→screen-x,
+    // so swap arguments to align with screen-space dx/dy.
     move_page(dy, dx);
 }
 

@@ -1,13 +1,17 @@
-#include "page_layout.hpp"
-#include "app.h"
+#include "PageLayout.hpp"
 #include <algorithm>
 #include <iostream>
 
-PageLayout::PageLayout(App& app, fz_document *doc, int current_page)
-    : app_(app), doc(doc), pdf(pdf_specifics(ctx, doc)), pages_count(fz_count_pages(ctx, doc)) {
+extern "C" {
+    #include "common.h"
+    #include "config.h"
+    #include "SDL_helper.h"
+}
+
+PageLayout::PageLayout(fz_document *doc, int current_page):doc(doc),pdf(pdf_specifics(ctx, doc)),pages_count(fz_count_pages(ctx, doc)) {
     _current_page = std::min(std::max(0, current_page), pages_count - 1);
     
-    SDL_RenderGetViewport(app_.renderer, &viewport);
+    SDL_RenderGetViewport(RENDERER, &viewport);
     render_page_to_texture(_current_page, false);
 }
 
@@ -65,7 +69,7 @@ void PageLayout::draw_page() {
     rect.w = w;
     rect.h = h;
     
-    SDL_RenderCopy(app_.renderer, page_texture, NULL, &rect);
+    SDL_RenderCopy(RENDERER, page_texture, NULL, &rect);
 }
 
 char* PageLayout::info() {
@@ -92,12 +96,12 @@ void PageLayout::render_page_to_texture(int num, bool reset_zoom) {
     }
     
     fz_pixmap *pix = fz_new_pixmap_from_page_contents(ctx, page, fz_scale(zoom, zoom), fz_device_rgb(ctx), 0);
-    if (app_.darkMode()) {
+    if (configDarkMode) {
         fz_invert_pixmap(ctx, pix);
     }
 
     SDL_Surface *image = SDL_CreateRGBSurfaceFrom(pix->samples, pix->w, pix->h, pix->n * 8, pix->w * pix->n, 0x000000FF, 0x0000FF00, 0x00FF0000, 0);
-    page_texture = SDL_CreateTextureFromSurface(app_.renderer, image);
+    page_texture = SDL_CreateTextureFromSurface(RENDERER, image);
 
     SDL_FreeSurface(image);
     fz_drop_pixmap(ctx, pix);
@@ -121,9 +125,5 @@ void PageLayout::move_page(float x, float y) {
     float w = page_bounds.x1 * zoom, h = page_bounds.y1 * zoom;
     
     page_center.x = fmin(fmax(page_center.x + x, w / 2), viewport.w - w / 2);
-    page_center.y = fmin(fmax(page_center.y + y, h / 2), h / 2);
-}
-
-void PageLayout::force_rerender() {
-    render_page_to_texture(_current_page, false);
+    page_center.y = fmin(fmax(page_center.y + y, viewport.h - h / 2), h / 2);
 }

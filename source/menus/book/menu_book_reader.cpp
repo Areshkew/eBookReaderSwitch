@@ -1,19 +1,20 @@
 extern "C" {
+    #include "menu_book_reader.h"
+    #include "MenuChooser.h"
+    #include "common.h"
+    #include "config.h"
+    #include "SDL_helper.h"
     #include "logger.h"
 }
 
-#include "app.h"
-#include "menu_book_reader.h"
-#include "menu_chooser.h"
-#include "book_reader.hpp"
-
+#include "BookReader.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdlrenderer2.h"
 #include "imgui_switch.h"
 
 #include <cmath>
-#include <string>
 
+// ---- Touch tracking ----
 struct TouchTracker {
     HidTouchScreenState prevState = {};
     int pinchCooldown = 0;
@@ -27,7 +28,6 @@ struct TouchTracker {
 
 static TouchTracker s_tracker;
 static float s_prevPinchDist = 0.0f;
-static bool s_showThemeModal = false;
 
 static float touchDistance(const HidTouchState& a, const HidTouchState& b) {
     float dx = static_cast<float>(a.x) - static_cast<float>(b.x);
@@ -51,11 +51,14 @@ static bool pointInUIBar(float x, float y, bool showUI, BookPageLayout layout) {
 
 static void processTap(BookReader* reader, float x, float y) {
     if (reader->showUI) {
+        // Tap anywhere in the page area hides the UI
         if (!pointInUIBar(x, y, true, reader->currentPageLayout())) {
             reader->showUI = false;
         }
+        // Taps inside UI bars are handled by ImGui via SDL events
     } else {
         if (reader->currentPageLayout() == BookPageLayoutPortrait) {
+            // Portrait: left/right thirds turn pages; top edge toggles UI
             if (y < 108.0f) {
                 reader->showUI = true;
             } else if (x < 427.0f) {
@@ -64,6 +67,8 @@ static void processTap(BookReader* reader, float x, float y) {
                 reader->next_page(1);
             }
         } else {
+            // Landscape: right edge shows UI (page top is on the right).
+            // Page turns on top/bottom thirds in the middle area.
             const float landBarW = 110.0f;
             const float displayW = 1280.0f;
             if (x > (displayW - landBarW)) {
@@ -77,16 +82,16 @@ static void processTap(BookReader* reader, float x, float y) {
     }
 }
 
-void Menu_OpenBook(App& app, const char* path) {
+void Menu_OpenBook(char *path) {
     BookReader *reader = NULL;
     int result = 0;
 
-    reader = new BookReader(app, path, &result);
-
+    reader = new BookReader(path, &result);
+    
     if (result < 0) {
         LOG_W("Menu_OpenBook: document not loaded");
     }
-
+    
     hidInitializeTouchScreen();
 
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
@@ -94,6 +99,7 @@ void Menu_OpenBook(App& app, const char* path) {
     padInitializeDefault(&pad);
 
     while (result >= 0 && appletMainLoop()) {
+        // ---- Feed SDL events to ImGui ----
         ImGuiProcessSDLEvents();
 
         padUpdate(&pad);
@@ -101,6 +107,7 @@ void Menu_OpenBook(App& app, const char* path) {
         u64 kHeld = padGetButtons(&pad);
         u64 kUp   = padGetButtonsUp(&pad);
 
+        // ---- Begin ImGui frame ----
         ImGui_ImplSDLRenderer2_NewFrame();
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2(1280.0f, 720.0f);
@@ -109,12 +116,12 @@ void Menu_OpenBook(App& app, const char* path) {
             io.DeltaTime = 1.0f / 60.0f;
         ImGui::NewFrame();
 
-        bool enableNav = reader->showUI || s_showThemeModal;
-        ImGuiUpdateSwitchInput(&pad, enableNav);
-        ImGuiSetSwitchTheme(app.darkMode());
+        ImGuiUpdateSwitchInput(&pad, reader->showUI);
+        ImGuiSetSwitchTheme(configDarkMode);
 
+        // ---- Touch handling ----
         HidTouchScreenState touchState = {0};
-        bool hasTouch = !s_showThemeModal && hidGetTouchScreenStates(&touchState, 1);
+        bool hasTouch = hidGetTouchScreenStates(&touchState, 1);
 
         if (hasTouch) {
             s_tracker.maxTouchCount = (touchState.count > s_tracker.maxTouchCount)
@@ -122,6 +129,7 @@ void Menu_OpenBook(App& app, const char* path) {
         }
 
         if (hasTouch && touchState.count >= 2) {
+            // ---- Pinch zoom ----
             float dist = touchDistance(touchState.touches[0], touchState.touches[1]);
             if (s_tracker.prevState.count < 2) {
                 s_prevPinchDist = dist;
@@ -154,12 +162,14 @@ void Menu_OpenBook(App& app, const char* path) {
                     s_tracker.inUIBar = false;
 
                     if (s_tracker.prevState.count == 0) {
+                        // Touch just began
                         s_tracker.dragStartX = tx;
                         s_tracker.dragStartY = ty;
                         s_tracker.prevX = tx;
                         s_tracker.prevY = ty;
                         s_tracker.isDragging = false;
                     } else {
+                        // Touch continuing
                         float moveDist = std::sqrt(
                             (tx - s_tracker.dragStartX) * (tx - s_tracker.dragStartX) +
                             (ty - s_tracker.dragStartY) * (ty - s_tracker.dragStartY));
@@ -181,6 +191,7 @@ void Menu_OpenBook(App& app, const char* path) {
             }
             s_tracker.hadTouch = true;
         } else {
+            // No touches
             if (s_tracker.hadTouch && s_tracker.prevState.count == 1 &&
                 !s_tracker.isDragging && !s_tracker.inUIBar &&
                 s_tracker.maxTouchCount < 2) {
@@ -197,8 +208,7 @@ void Menu_OpenBook(App& app, const char* path) {
 
         s_tracker.prevState = touchState;
 
-        if (!s_showThemeModal) {
-
+        // ---- Button controls (unchanged mappings) ----
         if (kDown & HidNpadButton_Left) {
             if (reader->currentPageLayout() == BookPageLayoutPortrait) {
                 reader->previous_page(1);
@@ -276,81 +286,29 @@ void Menu_OpenBook(App& app, const char* path) {
             reader->switch_page_layout();
         }
 
-        } // !s_showThemeModal
-
         if (kUp & HidNpadButton_Minus) {
-            s_showThemeModal = true;
+            configDarkMode = !configDarkMode;
+            reader->previous_page(0);
         }
 
-        if (kUp & HidNpadButton_Plus) {
-            app.setNightMode(!app.nightMode());
+        if (kDown & HidNpadButton_Plus) {
+            reader->showUI = !reader->showUI;
         }
 
+        // ---- Draw page + ImGui overlays ----
         reader->draw();
         if (reader->requestExit) {
             break;
         }
 
-        if (s_showThemeModal) {
-            ImGui::OpenPopup("Themes");
-        }
-        ImVec2 modalCenter = ImGui::GetMainViewport()->GetCenter();
-        ImGui::SetNextWindowPos(modalCenter, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-        ImGui::SetNextWindowSize(ImVec2(500, 450));
-        if (ImGui::BeginPopupModal("Themes", &s_showThemeModal,
-            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar))
-        {
-            auto themeList = app.themes->list_themes();
-            const std::string& active = app.config.settings().active_theme;
-            const Theme& th = app.theme();
-            ImVec4 accentCol(th.accent.r / 255.0f, th.accent.g / 255.0f, th.accent.b / 255.0f, th.accent.a / 255.0f);
-
-            ImGui::Text("Select Theme");
-            ImGui::Separator();
-            ImGui::Dummy(ImVec2(0, 8));
-
-            ImGui::BeginChild("ThemeList", ImVec2(0, -50), ImGuiChildFlags_NavFlattened);
-            for (const auto& tname : themeList) {
-                bool isSelected = (tname == active);
-                if (isSelected) {
-                    ImGui::PushStyleColor(ImGuiCol_Text, accentCol);
-                }
-                if (ImGui::Selectable(tname.c_str(), isSelected, 0, ImVec2(0, 36))) {
-                    if (tname != active) {
-                        app.themes->load_theme(tname.c_str());
-                        app.config.mutable_settings().active_theme = tname;
-                        app.config.mark_dirty();
-                        app.config.save();
-                        reader->rerender_page();
-                    }
-                    s_showThemeModal = false;
-                    ImGui::CloseCurrentPopup();
-                }
-                if (isSelected) {
-                    ImGui::PopStyleColor();
-                }
-            }
-            ImGui::EndChild();
-
-            ImGui::Separator();
-            ImGui::Dummy(ImVec2(0, 4));
-            float bw = 120.0f;
-            ImGui::SetCursorPosX((ImGui::GetWindowSize().x - bw) * 0.5f);
-            if (ImGui::Button("Close", ImVec2(bw, 36))) {
-                s_showThemeModal = false;
-                ImGui::CloseCurrentPopup();
-            }
-
-            ImGui::EndPopup();
-        }
-
+        // ---- Render ImGui on top and present ----
         ImGui::Render();
-        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), app.renderer);
-        SDL_RenderPresent(app.renderer);
+        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), RENDERER);
+        SDL_RenderPresent(RENDERER);
     }
 
     LOG_I("Exiting reader");
     LOG_I("Opening chooser");
-    Menu_StartChoosing(app);
+    Menu_StartChoosing();
     delete reader;
 }

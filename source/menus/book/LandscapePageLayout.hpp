@@ -1,12 +1,12 @@
 #ifndef EBOOK_READER_LANDSCAPE_PAGE_LAYOUT_HPP
 #define EBOOK_READER_LANDSCAPE_PAGE_LAYOUT_HPP
 
-#include "page_layout.hpp"
+#include "PageLayout.hpp"
 
 class LandscapePageLayout: public PageLayout
 {
     public:
-        LandscapePageLayout(App& app, fz_document *doc, int current_page);
+        LandscapePageLayout(fz_document *doc, int current_page);
     
         void reset();
         void draw_page();
