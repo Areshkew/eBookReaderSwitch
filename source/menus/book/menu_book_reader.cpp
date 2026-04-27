@@ -277,7 +277,7 @@ void Menu_OpenBook(App& app, const char* path) {
         }
 
         if (kDown & HidNpadButton_Plus) {
-            reader->showUI = !reader->showUI;
+            app.nightMode = !app.nightMode;
         }
 
         reader->draw();

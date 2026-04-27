@@ -228,6 +228,12 @@ void BookReader::draw() {
     
     layout->draw_page();
 
+    if (app_.nightMode) {
+        SDL_SetRenderDrawBlendMode(app_.renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(app_.renderer, 255, 140, 0, 70);
+        SDL_RenderFillRect(app_.renderer, nullptr);
+    }
+
     if (showUI) {
         ImGuiIO& io = ImGui::GetIO();
         float displayW = io.DisplaySize.x;

@@ -88,7 +88,7 @@ void Menu_StartChoosing(App& app) {
         u64 kDown = padGetButtonsDown(&pad);
 
         if (!showWarningModal && (kDown & HidNpadButton_Plus))
-            break;
+            app.nightMode = !app.nightMode;
         if (kDown & HidNpadButton_Minus)
             app.darkMode = !app.darkMode;
         if (!showWarningModal && (kDown & HidNpadButton_B))
@@ -125,6 +125,11 @@ void Menu_StartChoosing(App& app) {
         ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 200);
         if (ImGui::Button(app.darkMode ? "Light Theme" : "Dark Theme", ImVec2(180, 40))) {
             app.darkMode = !app.darkMode;
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button(app.nightMode ? "Night: On" : "Night: Off", ImVec2(150, 40))) {
+            app.nightMode = !app.nightMode;
         }
 
         ImGui::Dummy(ImVec2(0, 8));
@@ -236,7 +241,7 @@ void Menu_StartChoosing(App& app) {
 
         ImGui::Separator();
         ImGui::Dummy(ImVec2(0, 4));
-        ImGui::TextDisabled("[A] Open Book    [B] Back    [+] Exit    [-] Toggle Theme");
+        ImGui::TextDisabled("[A] Open Book    [B] Back    [-/+] Theme/Night");
 
         ImGui::End();
 
@@ -281,6 +286,11 @@ void Menu_StartChoosing(App& app) {
         ImGui::Render();
         SDL_SetRenderDrawColor(app.renderer, 0, 0, 0, 255);
         SDL_RenderClear(app.renderer);
+        if (app.nightMode) {
+            SDL_SetRenderDrawBlendMode(app.renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(app.renderer, 255, 140, 0, 70);
+            SDL_RenderFillRect(app.renderer, nullptr);
+        }
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), app.renderer);
         SDL_RenderPresent(app.renderer);
 

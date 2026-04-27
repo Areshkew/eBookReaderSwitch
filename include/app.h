@@ -8,6 +8,7 @@ struct App {
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
     bool darkMode = true;
+    bool nightMode = false;
     PadState pad = {};
 
     bool imguiInitialized = false;
