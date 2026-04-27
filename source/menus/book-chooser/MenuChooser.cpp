@@ -1,12 +1,12 @@
 extern "C" {
+    #include "MenuChooser.h"
+    #include "menu_book_reader.h"
+    #include "common.h"
     #include "fs.h"
+    #include "config.h"
     #include "paths.h"
     #include "logger.h"
 }
-
-#include "app.h"
-#include "menu_chooser.h"
-#include "menu_book_reader.h"
 
 #include <switch.h>
 #include <iostream>
@@ -33,7 +33,7 @@ struct BookEntry {
     bool isExperimental;
 };
 
-void Menu_StartChoosing(App& app) {
+void Menu_StartChoosing() {
     vector<BookEntry> books;
     list<string> allowedExtensions = {".pdf", ".epub", ".cbz", ".xps"};
     list<string> warnedExtensions  = {".epub", ".cbz", ".xps"};
@@ -82,21 +82,25 @@ void Menu_StartChoosing(App& app) {
     bool openBook = false;
 
     while (appletMainLoop()) {
+        // Pump SDL events and feed touch/mouse to ImGui
         ImGuiProcessSDLEvents();
 
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
 
+        // App-level controls
         if (!showWarningModal && (kDown & HidNpadButton_Plus))
             break;
         if (kDown & HidNpadButton_Minus)
-            app.darkMode = !app.darkMode;
+            configDarkMode = !configDarkMode;
         if (!showWarningModal && (kDown & HidNpadButton_B))
             break;
 
+        // Start ImGui frame
         ImGui_ImplSDLRenderer2_NewFrame();
 
         ImGuiIO& io = ImGui::GetIO();
+        // Hardcode display parameters for Switch (workaround SDL2 reporting issues)
         io.DisplaySize = ImVec2(1280.0f, 720.0f);
         io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
         if (io.DeltaTime <= 0.0f || io.DeltaTime > 1.0f)
@@ -105,8 +109,9 @@ void Menu_StartChoosing(App& app) {
         ImGui::NewFrame();
 
         ImGuiUpdateSwitchInput(&pad);
-        ImGuiSetSwitchTheme(app.darkMode);
+        ImGuiSetSwitchTheme(configDarkMode);
 
+        // ---- Main fullscreen window ----
         ImGui::SetNextWindowPos(ImVec2(0, 0));
         ImGui::SetNextWindowSize(ImVec2(1280, 720));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24, 24));
@@ -116,21 +121,23 @@ void Menu_StartChoosing(App& app) {
             ImGuiWindowFlags_NoNavFocus);
         ImGui::PopStyleVar();
 
-        ImVec4 accentColor = app.darkMode ? ImVec4(0.00f, 0.82f, 1.00f, 1.00f) : ImVec4(0.00f, 0.55f, 0.75f, 1.00f);
+        // ---- Header ----
+        ImVec4 accentColor = configDarkMode ? ImVec4(0.00f, 0.82f, 1.00f, 1.00f) : ImVec4(0.00f, 0.55f, 0.75f, 1.00f);
         ImGui::PushStyleColor(ImGuiCol_Text, accentColor);
         ImGui::Text("eBook Reader");
         ImGui::PopStyleColor();
 
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 200);
-        if (ImGui::Button(app.darkMode ? "Light Theme" : "Dark Theme", ImVec2(180, 40))) {
-            app.darkMode = !app.darkMode;
+        if (ImGui::Button(configDarkMode ? "Light Theme" : "Dark Theme", ImVec2(180, 40))) {
+            configDarkMode = !configDarkMode;
         }
 
         ImGui::Dummy(ImVec2(0, 8));
         ImGui::Separator();
         ImGui::Dummy(ImVec2(0, 8));
 
+        // ---- Stats bar ----
         ImGui::Text("Books: %d", (int)books.size());
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 300);
@@ -138,6 +145,7 @@ void Menu_StartChoosing(App& app) {
 
         ImGui::Dummy(ImVec2(0, 8));
 
+        // ---- Filters ----
         ImGui::AlignTextToFramePadding();
         ImGui::Text("Filter:");
         ImGui::SameLine();
@@ -153,6 +161,7 @@ void Menu_StartChoosing(App& app) {
             ImGui::EndCombo();
         }
 
+        // Rebuild filtered list if extension filter changed
         if (extFilter != prevExtFilter) {
             prevExtFilter = extFilter;
             filteredIndices.clear();
@@ -160,6 +169,7 @@ void Menu_StartChoosing(App& app) {
             for (int i = 0; i < (int)books.size(); i++) {
                 const BookEntry& book = books[i];
 
+                // Extension filter
                 if (extFilter > 0) {
                     string targetExt = string(".") + extItems[extFilter];
                     transform(targetExt.begin(), targetExt.end(), targetExt.begin(), ::tolower);
@@ -175,6 +185,7 @@ void Menu_StartChoosing(App& app) {
 
         ImGui::Dummy(ImVec2(0, 8));
 
+        // ---- Book list ----
         ImGui::BeginChild("BookList", ImVec2(0, -60), ImGuiChildFlags_NavFlattened);
 
         for (int i = 0; i < (int)filteredIndices.size(); i++) {
@@ -183,14 +194,17 @@ void Menu_StartChoosing(App& app) {
 
             ImGui::PushID(bookIdx);
 
+            // Invisible selectable handles focus + activation
             bool activated = ImGui::Selectable("##hidden", false, 0, ImVec2(0, 48));
 
+            // Custom drawing on top of the selectable
             ImVec2 min = ImGui::GetItemRectMin();
             ImVec2 max = ImGui::GetItemRectMax();
             ImDrawList* drawList = ImGui::GetWindowDrawList();
             float textY = min.y + (48.0f - ImGui::GetFontSize()) * 0.5f;
             float x = min.x + 14.0f;
 
+            // Warning indicator bar for experimental formats
             if (book.isExperimental) {
                 drawList->AddRectFilled(
                     ImVec2(min.x + 4, min.y + 10),
@@ -199,13 +213,15 @@ void Menu_StartChoosing(App& app) {
                 x += 12.0f;
             }
 
+            // Filename
             drawList->AddText(ImVec2(x, textY), ImGui::GetColorU32(ImGuiCol_Text), book.filename.c_str());
 
+            // Extension badge on the right
             float badgeTextWidth = ImGui::CalcTextSize(book.ext.c_str()).x;
             float badgeWidth = badgeTextWidth + 14.0f;
             float badgeX = max.x - badgeWidth - 14.0f;
-            ImU32 badgeBg = app.darkMode ? IM_COL32(60, 60, 60, 200) : IM_COL32(200, 200, 200, 200);
-            ImU32 badgeText = app.darkMode ? IM_COL32(160, 160, 160, 255) : IM_COL32(80, 80, 80, 255);
+            ImU32 badgeBg = configDarkMode ? IM_COL32(60, 60, 60, 200) : IM_COL32(200, 200, 200, 200);
+            ImU32 badgeText = configDarkMode ? IM_COL32(160, 160, 160, 255) : IM_COL32(80, 80, 80, 255);
             drawList->AddRectFilled(
                 ImVec2(badgeX, textY - 2),
                 ImVec2(badgeX + badgeWidth, textY + ImGui::GetFontSize() + 2),
@@ -234,12 +250,14 @@ void Menu_StartChoosing(App& app) {
 
         ImGui::EndChild();
 
+        // ---- Footer hints ----
         ImGui::Separator();
         ImGui::Dummy(ImVec2(0, 4));
         ImGui::TextDisabled("[A] Open Book    [B] Back    [+] Exit    [-] Toggle Theme");
 
         ImGui::End();
 
+        // ---- Warning modal ----
         if (showWarningModal) {
             ImGui::OpenPopup("Warning");
         }
@@ -278,17 +296,20 @@ void Menu_StartChoosing(App& app) {
             ImGui::EndPopup();
         }
 
+        // ---- Render ----
         ImGui::Render();
-        SDL_SetRenderDrawColor(app.renderer, 0, 0, 0, 255);
-        SDL_RenderClear(app.renderer);
-        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), app.renderer);
-        SDL_RenderPresent(app.renderer);
+        SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 255);
+        SDL_RenderClear(RENDERER);
+        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), RENDERER);
+        SDL_RenderPresent(RENDERER);
 
+        // ---- Open book if requested ----
         if (openBook) {
             openBook = false;
             LOG_I("Opening book: %s", bookToOpen.c_str());
-            Menu_OpenBook(app, bookToOpen.c_str());
-            break;
+            Menu_OpenBook((char*)bookToOpen.c_str());
+            break; // exit chooser after reader returns (matches original behavior)
         }
     }
+
 }

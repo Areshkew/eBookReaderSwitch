@@ -1,6 +1,8 @@
 #ifndef EBOOK_READER_CONFIG_H
 #define EBOOK_READER_CONFIG_H
 
-extern const char* configFile;
+extern bool configDarkMode;
+
+extern char* configFile;
 
 #endif
