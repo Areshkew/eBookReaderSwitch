@@ -2,7 +2,7 @@
 #include <switch.h>
 
 #include "common.h"
-#include "SDL_helper.h"
+#include "sdl_helper.h"
 #include "status_bar.h"
 #include "textures.h"
 
