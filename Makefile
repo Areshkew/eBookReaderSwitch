@@ -45,7 +45,7 @@ INCLUDES    :=  include include/menus/book include/menus/book-chooser include/he
 ROMFS	    :=	romfs
 
 VERSION_MAJOR := 0
-VERSION_MINOR := 5
+VERSION_MINOR := 6
 VERSION_MICRO := 0
 
 APP_TITLE   := Switchelf
