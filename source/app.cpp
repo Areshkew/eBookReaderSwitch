@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <switch.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -28,37 +27,39 @@ TTF_Font *ROBOTO_35, *ROBOTO_30, *ROBOTO_27, *ROBOTO_25, *ROBOTO_20, *ROBOTO_15;
 static constexpr int WINDOW_W = 1280;
 static constexpr int WINDOW_H = 720;
 static constexpr const char* FONT_PATH = "romfs:/resources/font/Roboto-Light.ttf";
+static constexpr int JOYSTICK_COUNT = 2;
+static constexpr float IMGUI_FONT_SIZE = 28.0f;
+static constexpr const char* RENDER_SCALE_QUALITY = "2";
+
+struct FontEntry {
+    TTF_Font** target;
+    int size;
+};
+
+static const FontEntry FONT_ENTRIES[] = {
+    { &ROBOTO_35, 35 }, { &ROBOTO_30, 30 }, { &ROBOTO_27, 27 },
+    { &ROBOTO_25, 25 }, { &ROBOTO_20, 20 }, { &ROBOTO_15, 15 },
+};
+
+static void closeFonts() {
+    for (const auto& entry : FONT_ENTRIES) {
+        if (*entry.target) {
+            TTF_CloseFont(*entry.target);
+            *entry.target = nullptr;
+        }
+    }
+}
 
 static bool loadFonts() {
-    FILE* f = fopen(FONT_PATH, "rb");
-    if (f) {
-        fclose(f);
-    } else {
-        LOG_E("Font file not found: %s", FONT_PATH);
-        return false;
-    }
-
-    struct { TTF_Font** target; int size; } fonts[] = {
-        { &ROBOTO_35, 35 }, { &ROBOTO_30, 30 }, { &ROBOTO_27, 27 },
-        { &ROBOTO_25, 25 }, { &ROBOTO_20, 20 }, { &ROBOTO_15, 15 },
-    };
-
-    for (auto& entry : fonts) {
+    for (const auto& entry : FONT_ENTRIES) {
         *entry.target = TTF_OpenFont(FONT_PATH, entry.size);
         if (!*entry.target) {
             LOG_E("Failed to load font size %d", entry.size);
+            closeFonts();
             return false;
         }
     }
     return true;
-}
-
-static void closeFonts() {
-    TTF_Font* fonts[] = { ROBOTO_35, ROBOTO_30, ROBOTO_27, ROBOTO_25, ROBOTO_20, ROBOTO_15 };
-    for (auto f : fonts) {
-        if (f) TTF_CloseFont(f);
-    }
-    ROBOTO_35 = ROBOTO_30 = ROBOTO_27 = ROBOTO_25 = ROBOTO_20 = ROBOTO_15 = nullptr;
 }
 
 void App::shutdown() {
@@ -137,7 +138,7 @@ bool App::init() {
     RENDERER = renderer;
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, RENDER_SCALE_QUALITY);
 
     LOG_I("IMG_Init...");
     if (!IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG)) {
@@ -160,7 +161,7 @@ bool App::init() {
     if (!loadFonts()) return false;
 
     LOG_I("Joysticks...");
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < JOYSTICK_COUNT; i++) {
         if (!SDL_JoystickOpen(i)) {
             LOG_E("FAILED (%s)", SDL_GetError());
             return false;
@@ -184,7 +185,7 @@ bool App::init() {
     io.KeyRepeatRate = FLT_MAX;
 
     io.Fonts->Clear();
-    ImFont* imFont = io.Fonts->AddFontFromFileTTF(FONT_PATH, 28.0f);
+    ImFont* imFont = io.Fonts->AddFontFromFileTTF(FONT_PATH, IMGUI_FONT_SIZE);
     if (!imFont) {
         LOG_E("Failed to load ImGui font");
         return false;
