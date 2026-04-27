@@ -88,12 +88,13 @@ void Menu_StartChoosing(App& app) {
 
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
+        u64 kUp   = padGetButtonsUp(&pad);
 
-        if (!showWarningModal && (kUp & HidNpadButton_Plus))
+        if (!showWarningModal && !showThemeModal && (kUp & HidNpadButton_Plus))
             app.setNightMode(!app.nightMode());
-        if (!showWarningModal && (kDown & HidNpadButton_Minus))
+        if (!showWarningModal && !showThemeModal && (kDown & HidNpadButton_Minus))
             showThemeModal = true;
-        if (!showWarningModal && (kDown & HidNpadButton_B))
+        if (!showWarningModal && !showThemeModal && (kDown & HidNpadButton_B))
             break;
 
         ImGui_ImplSDLRenderer2_NewFrame();

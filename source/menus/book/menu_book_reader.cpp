@@ -197,6 +197,8 @@ void Menu_OpenBook(App& app, const char* path) {
 
         s_tracker.prevState = touchState;
 
+        if (!s_showThemeModal) {
+
         if (kDown & HidNpadButton_Left) {
             if (reader->currentPageLayout() == BookPageLayoutPortrait) {
                 reader->previous_page(1);
@@ -273,6 +275,8 @@ void Menu_OpenBook(App& app, const char* path) {
         if (kDown & HidNpadButton_Y) {
             reader->switch_page_layout();
         }
+
+        } // !s_showThemeModal
 
         if (kUp & HidNpadButton_Minus) {
             s_showThemeModal = true;
