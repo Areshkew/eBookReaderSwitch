@@ -89,7 +89,7 @@ void Menu_StartChoosing(App& app) {
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
 
-        if (!showWarningModal && (kDown & HidNpadButton_Plus))
+        if (!showWarningModal && (kUp & HidNpadButton_Plus))
             app.setNightMode(!app.nightMode());
         if (!showWarningModal && (kDown & HidNpadButton_Minus))
             showThemeModal = true;

@@ -278,7 +278,7 @@ void Menu_OpenBook(App& app, const char* path) {
             s_showThemeModal = true;
         }
 
-        if (kDown & HidNpadButton_Plus) {
+        if (kUp & HidNpadButton_Plus) {
             app.setNightMode(!app.nightMode());
         }
 
