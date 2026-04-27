@@ -3,8 +3,8 @@
 
 #include <mupdf/pdf.h>
 #include <string>
-#include "PageLayout.hpp"
-#include <switch.h>
+#include "page_layout.hpp"
+#include "app.h"
 struct SDL_Texture;
 
 typedef enum {
@@ -14,7 +14,7 @@ typedef enum {
 
 class BookReader {
     public:
-        BookReader(const char *path, int *result);
+        BookReader(App& app, const char *path, int *result);
         ~BookReader();
 
         bool showUI = false;
@@ -33,6 +33,7 @@ class BookReader {
         void reset_page();
         void switch_page_layout();
         void draw();
+        void rerender_page() { if (layout) layout->force_rerender(); }
     
         BookPageLayout currentPageLayout() {
             return _currentPageLayout;
@@ -43,6 +44,7 @@ class BookReader {
         void load_icons();
         void free_icons();
     
+        App& app_;
         fz_document *doc = NULL;
     
         BookPageLayout _currentPageLayout = BookPageLayoutPortrait;

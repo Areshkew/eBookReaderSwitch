@@ -41,7 +41,7 @@ TARGET		:=	Switchelf
 BUILD		:=	build
 SOURCES		:=	source source/menus/book source/menus/book-chooser source/helpers third_party/imgui
 DATA		:=	data
-INCLUDES    :=  include include/menus/book include/menus/book-chooser include/helpers third_party/imgui
+INCLUDES    :=  include include/menus/book include/menus/book-chooser include/helpers third_party/imgui third_party
 ROMFS	    :=	romfs
 
 VERSION_MAJOR := 0
@@ -58,17 +58,18 @@ ICON := icon.jpg
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 
-CFLAGS	:=	-g -std=c++17 -Wall -O2 -ffunction-sections -Wno-int-conversion \
+CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
 			$(ARCH) $(DEFINES)
 
 CFLAGS	+=	-D__SWITCH__ $(INCLUDE) `sdl2-config --cflags`
 
-CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions #-DDEBUG=1 -DEXPERIMENTAL=1
+CXXFLAGS	:= $(CFLAGS) -std=c++17 -fno-rtti -fno-exceptions -Wno-class-memaccess -Wno-deprecated-declarations -Wno-template-body #-DDEBUG=1 -DEXPERIMENTAL=1
+CFLAGS	+= -Wno-int-conversion
 
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS_REAL = stdc++fs SDL2_gfx SDL2_ttf freetype harfbuzz SDL2_image png jpeg webp z bz2 config nx mupdf mupdf-third
+LIBS_REAL = stdc++fs SDL2_gfx SDL2_ttf freetype harfbuzz SDL2_image png jpeg webp z bz2 nx mupdf mupdf-third
 
 ifeq (,$(NODEBUG))
 LIBS_REAL += twili
