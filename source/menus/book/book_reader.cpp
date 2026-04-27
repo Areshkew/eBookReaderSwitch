@@ -18,7 +18,7 @@ extern "C"  {
 fz_context *ctx = NULL;
 int windowX, windowY;
 config_t *config = NULL;
-char* configFile = CONFIG_FILE;
+const char* configFile = CONFIG_FILE;
 
 static int load_last_page(const char *book_name)  {
     if (!config) {

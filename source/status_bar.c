@@ -7,7 +7,7 @@
 #include "textures.h"
 
 static char *Clock_GetCurrentTime(void) {
-	static char buffer[10];
+	static char buffer[16];
 
     time_t unixTime = time(NULL);
 	struct tm* timeStruct = gmtime((const time_t *)&unixTime);
@@ -23,10 +23,7 @@ static char *Clock_GetCurrentTime(void) {
 	else if (hours > 12)
 		hours = hours - 12;
 
-	if ((hours >= 1) && (hours < 10))
-		snprintf(buffer, 10, "%2i:%02i %s", hours, minutes, amOrPm ? "AM" : "PM");
-	else
-		snprintf(buffer, 10, "%2i:%02i %s", hours, minutes, amOrPm ? "AM" : "PM");
+	snprintf(buffer, sizeof(buffer), "%2i:%02i %s", hours, minutes, amOrPm ? "AM" : "PM");
 
 	return buffer;
 }
@@ -42,7 +39,7 @@ static void StatusBar_GetBatteryStatus(int x, int y) {
 		state = 0;
 	
 	if (R_SUCCEEDED(psmGetBatteryChargePercentage(&percent))) {
-		SDL_Texture *batteryImage;
+		SDL_Texture *batteryImage = battery_unknown;
 		if (percent < 20) {
 			//SDL_DrawImage(RENDERER, battery_low, x, 3);
 			batteryImage = battery_low;

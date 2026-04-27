@@ -19,6 +19,8 @@ static inline void FreeTextureIfNeeded(SDL_Texture **texture)
 class PageLayout
 {
     public:
+        virtual ~PageLayout() = default;
+
         PageLayout(App& app, fz_document *doc, int current_page);
     
         int current_page()

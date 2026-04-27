@@ -1,6 +1,6 @@
 #ifndef EBOOK_READER_CONFIG_H
 #define EBOOK_READER_CONFIG_H
 
-extern char* configFile;
+extern const char* configFile;
 
 #endif
