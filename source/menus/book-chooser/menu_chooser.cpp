@@ -7,6 +7,7 @@ extern "C" {
 #include "app.h"
 #include "menu_chooser.h"
 #include "menu_book_reader.h"
+#include "theme.h"
 
 #include <switch.h>
 #include <iostream>
@@ -69,6 +70,7 @@ void Menu_StartChoosing(App& app) {
 
     bool showWarningModal = false;
     int warningBookIdx = -1;
+    bool showThemeModal = false;
 
     const char* extItems[] = {"All", "PDF", "EPUB", "CBZ", "XPS"};
     int extFilter = 0;
@@ -88,9 +90,9 @@ void Menu_StartChoosing(App& app) {
         u64 kDown = padGetButtonsDown(&pad);
 
         if (!showWarningModal && (kDown & HidNpadButton_Plus))
-            app.nightMode = !app.nightMode;
-        if (kDown & HidNpadButton_Minus)
-            app.darkMode = !app.darkMode;
+            app.setNightMode(!app.nightMode());
+        if (!showWarningModal && (kDown & HidNpadButton_Minus))
+            showThemeModal = true;
         if (!showWarningModal && (kDown & HidNpadButton_B))
             break;
 
@@ -105,7 +107,10 @@ void Menu_StartChoosing(App& app) {
         ImGui::NewFrame();
 
         ImGuiUpdateSwitchInput(&pad);
-        ImGuiSetSwitchTheme(app.darkMode);
+        ImGuiSetSwitchTheme(app.darkMode());
+
+        const Theme& th = app.theme();
+        ImVec4 accentColor(th.accent.r / 255.0f, th.accent.g / 255.0f, th.accent.b / 255.0f, th.accent.a / 255.0f);
 
         ImGui::SetNextWindowPos(ImVec2(0, 0));
         ImGui::SetNextWindowSize(ImVec2(1280, 720));
@@ -116,20 +121,19 @@ void Menu_StartChoosing(App& app) {
             ImGuiWindowFlags_NoNavFocus);
         ImGui::PopStyleVar();
 
-        ImVec4 accentColor = app.darkMode ? ImVec4(0.00f, 0.82f, 1.00f, 1.00f) : ImVec4(0.00f, 0.55f, 0.75f, 1.00f);
         ImGui::PushStyleColor(ImGuiCol_Text, accentColor);
         ImGui::Text("eBook Reader");
         ImGui::PopStyleColor();
 
         ImGui::SameLine();
-        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 200);
-        if (ImGui::Button(app.darkMode ? "Light Theme" : "Dark Theme", ImVec2(180, 40))) {
-            app.darkMode = !app.darkMode;
+        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 340);
+        if (ImGui::Button("Theme", ImVec2(130, 40))) {
+            showThemeModal = true;
         }
 
         ImGui::SameLine();
-        if (ImGui::Button(app.nightMode ? "Night: On" : "Night: Off", ImVec2(150, 40))) {
-            app.nightMode = !app.nightMode;
+        if (ImGui::Button(app.nightMode() ? "Night: On" : "Night: Off", ImVec2(150, 40))) {
+            app.setNightMode(!app.nightMode());
         }
 
         ImGui::Dummy(ImVec2(0, 8));
@@ -209,8 +213,8 @@ void Menu_StartChoosing(App& app) {
             float badgeTextWidth = ImGui::CalcTextSize(book.ext.c_str()).x;
             float badgeWidth = badgeTextWidth + 14.0f;
             float badgeX = max.x - badgeWidth - 14.0f;
-            ImU32 badgeBg = app.darkMode ? IM_COL32(60, 60, 60, 200) : IM_COL32(200, 200, 200, 200);
-            ImU32 badgeText = app.darkMode ? IM_COL32(160, 160, 160, 255) : IM_COL32(80, 80, 80, 255);
+            ImU32 badgeBg = IM_COL32(th.badge_bg.r, th.badge_bg.g, th.badge_bg.b, th.badge_bg.a);
+            ImU32 badgeText = IM_COL32(th.badge_text.r, th.badge_text.g, th.badge_text.b, th.badge_text.a);
             drawList->AddRectFilled(
                 ImVec2(badgeX, textY - 2),
                 ImVec2(badgeX + badgeWidth, textY + ImGui::GetFontSize() + 2),
@@ -241,7 +245,7 @@ void Menu_StartChoosing(App& app) {
 
         ImGui::Separator();
         ImGui::Dummy(ImVec2(0, 4));
-        ImGui::TextDisabled("[A] Open Book    [B] Back    [-/+] Theme/Night");
+        ImGui::TextDisabled("[A] Open Book    [B] Back    [+] Night");
 
         ImGui::End();
 
@@ -249,7 +253,58 @@ void Menu_StartChoosing(App& app) {
             ImGui::OpenPopup("Warning");
         }
 
+        if (showThemeModal) {
+            ImGui::OpenPopup("Themes");
+        }
+
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(500, 450));
+
+        if (ImGui::BeginPopupModal("Themes", &showThemeModal,
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar))
+        {
+            auto themeList = app.themes->ListThemes();
+            const string& active = app.config.Settings().active_theme;
+
+            ImGui::Text("Select Theme");
+            ImGui::Separator();
+            ImGui::Dummy(ImVec2(0, 8));
+
+            ImGui::BeginChild("ThemeList", ImVec2(0, -50), ImGuiChildFlags_NavFlattened);
+            for (const auto& tname : themeList) {
+                bool isSelected = (tname == active);
+                if (isSelected) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, accentColor);
+                }
+                if (ImGui::Selectable(tname.c_str(), isSelected, 0, ImVec2(0, 36))) {
+                    if (tname != active) {
+                        app.themes->LoadTheme(tname.c_str());
+                        app.config.MutableSettings().active_theme = tname;
+                        app.config.MarkDirty();
+                        app.config.Save();
+                    }
+                    showThemeModal = false;
+                    ImGui::CloseCurrentPopup();
+                }
+                if (isSelected) {
+                    ImGui::PopStyleColor();
+                }
+            }
+            ImGui::EndChild();
+
+            ImGui::Separator();
+            ImGui::Dummy(ImVec2(0, 4));
+            float bw = 120.0f;
+            ImGui::SetCursorPosX((ImGui::GetWindowSize().x - bw) * 0.5f);
+            if (ImGui::Button("Close", ImVec2(bw, 36))) {
+                showThemeModal = false;
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::EndPopup();
+        }
+
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         ImGui::SetNextWindowSize(ImVec2(600, 220));
 
@@ -284,11 +339,11 @@ void Menu_StartChoosing(App& app) {
         }
 
         ImGui::Render();
-        SDL_SetRenderDrawColor(app.renderer, 0, 0, 0, 255);
+        SDL_SetRenderDrawColor(app.renderer, th.background.r, th.background.g, th.background.b, 255);
         SDL_RenderClear(app.renderer);
-        if (app.nightMode) {
+        if (app.nightMode()) {
             SDL_SetRenderDrawBlendMode(app.renderer, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(app.renderer, 255, 140, 0, 70);
+            SDL_SetRenderDrawColor(app.renderer, th.night_overlay.r, th.night_overlay.g, th.night_overlay.b, th.night_overlay.alpha);
             SDL_RenderFillRect(app.renderer, nullptr);
         }
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), app.renderer);

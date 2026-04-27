@@ -19,6 +19,8 @@ extern "C" {
 }
 
 #include "app.h"
+#include <cstdio>
+#include <cstring>
 
 SDL_Renderer* RENDERER;
 SDL_Window* WINDOW;
@@ -64,6 +66,15 @@ static bool loadFonts() {
 
 void App::shutdown() {
     LOG_I("Terminating...");
+
+    if (config.IsDirty()) {
+        config.Save();
+    }
+
+    if (themes) {
+        ThemeManager::Shutdown();
+        themes = nullptr;
+    }
 
     if (imguiInitialized) {
         ImGui_ImplSDLRenderer2_Shutdown();
@@ -171,6 +182,45 @@ bool App::init() {
     LOG_I("FS_Dirs...");
     if (FS_RecursiveMakeDir(BOOKS_DIR) != 0) {
         LOG_W("Failed to create books directory: %s", BOOKS_DIR);
+    }
+    FS_RecursiveMakeDir(THEMES_DIR);
+
+    LOG_I("Config...");
+    config.Load(CONFIG_FILE);
+
+    LOG_I("Theme...");
+    ThemeManager::Init();
+    themes = &ThemeManager::Instance();
+    {
+        static const char* bundledThemes[] = {"dark", "light"};
+        for (const char* tname : bundledThemes) {
+            char sd_dir[1024];
+            snprintf(sd_dir, sizeof(sd_dir), "%s/%s", THEMES_DIR, tname);
+            FS_RecursiveMakeDir(sd_dir);
+            char sd_file[2048];
+            snprintf(sd_file, sizeof(sd_file), "%s/theme.json", sd_dir);
+            if (!FS_FileExists(sd_file)) {
+                char romfs_src[1024];
+                snprintf(romfs_src, sizeof(romfs_src), "%s/%s/theme.json", THEMES_ROMFS_BASE, tname);
+                if (FS_FileExists(romfs_src)) {
+                    FILE* src = fopen(romfs_src, "rb");
+                    FILE* dst = fopen(sd_file, "wb");
+                    if (src && dst) {
+                        char buf[4096];
+                        size_t n;
+                        while ((n = fread(buf, 1, sizeof(buf), src)) > 0)
+                            fwrite(buf, 1, n, dst);
+                        fclose(src);
+                        fclose(dst);
+                        LOG_I("Copied default theme: %s", tname);
+                    } else {
+                        if (src) fclose(src);
+                        if (dst) fclose(dst);
+                    }
+                }
+            }
+        }
+        themes->LoadTheme(config.Settings().active_theme.c_str());
     }
 
     LOG_I("ImGui...");

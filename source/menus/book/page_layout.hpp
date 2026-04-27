@@ -46,6 +46,7 @@ class PageLayout
         virtual void reset();
         virtual void draw_page();
         virtual char* info();
+        void force_rerender();
     
     protected:
         virtual void render_page_to_texture(int num, bool reset_zoom);

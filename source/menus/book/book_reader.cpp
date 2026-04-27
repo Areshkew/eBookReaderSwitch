@@ -2,12 +2,10 @@
 #include "page_layout.hpp"
 #include "landscape_page_layout.hpp"
 #include <algorithm>
-#include <libconfig.h>
 #include <cstdio>
 
 extern "C"  {
     #include "sdl_helper.h"
-    #include "config.h"
     #include "paths.h"
     #include "logger.h"
 }
@@ -17,40 +15,9 @@ extern "C"  {
 
 fz_context *ctx = NULL;
 int windowX, windowY;
-config_t *config = NULL;
-const char* configFile = CONFIG_FILE;
 
-static int load_last_page(const char *book_name)  {
-    if (!config) {
-        config = (config_t *)malloc(sizeof(config_t));
-        config_init(config);
-        if (!config_read_file(config, configFile)) {
-            LOG_W("Failed to read config file: %s", configFile);
-        }
-    }
-    
-    config_setting_t *setting = config_setting_get_member(config_root_setting(config), book_name);
-    
-    if (setting) {
-        return config_setting_get_int(setting);
-    }
-
-    return 0;
-}
-
-static void save_last_page(const char *book_name, int current_page) {
-    config_setting_t *setting = config_setting_get_member(config_root_setting(config), book_name);
-    
-    if (!setting) {
-        setting = config_setting_add(config_root_setting(config), book_name, CONFIG_TYPE_INT);
-    }
-    
-    if (setting) {
-        config_setting_set_int(setting, current_page);
-        if (!config_write_file(config, configFile)) {
-            LOG_W("Failed to write config file: %s", configFile);
-        }
-    }
+static SDL_Color ToSDLColor(const ThemeColor& tc) {
+    return {tc.r, tc.g, tc.b, tc.a};
 }
 
 static void RotateDrawListVertices(ImDrawList* draw_list, int vtx_start, float cos_a, float sin_a, const ImVec2& center) {
@@ -117,11 +84,15 @@ BookReader::BookReader(App& app, const char *path, int* result) : app_(app) {
             return;
         }
         
-        int current_page = load_last_page(book_name.c_str());
+        int current_page = app_.config.GetSavedPage(book_name.c_str());
 
         LOG_I("current_page = %d", current_page);
 
         load_icons();
+        const std::string& rot = app_.config.Settings().rotation;
+        if (rot == "landscape") {
+            _currentPageLayout = BookPageLayoutLandscape;
+        }
         switch_current_page_layout(_currentPageLayout, current_page);
     }
     fz_catch(ctx){
@@ -162,12 +133,12 @@ void BookReader::free_icons() {
 
 void BookReader::previous_page(int n) {
     layout->previous_page(n);
-    save_last_page(book_name.c_str(), layout->current_page());
+    app_.config.SetSavedPage(book_name.c_str(), layout->current_page());
 }
 
 void BookReader::next_page(int n) {
     layout->next_page(n);
-    save_last_page(book_name.c_str(), layout->current_page());
+    app_.config.SetSavedPage(book_name.c_str(), layout->current_page());
 }
 
 void BookReader::zoom_in() {
@@ -210,27 +181,34 @@ void BookReader::switch_page_layout() {
     switch (_currentPageLayout) {
         case BookPageLayoutPortrait:
             switch_current_page_layout(BookPageLayoutLandscape, 0);
+            app_.config.MutableSettings().rotation = "landscape";
+            app_.config.MarkDirty();
+            app_.config.Save();
             break;
         case BookPageLayoutLandscape:
             switch_current_page_layout(BookPageLayoutPortrait, 0);
+            app_.config.MutableSettings().rotation = "portrait";
+            app_.config.MarkDirty();
+            app_.config.Save();
             break;
     }
 }
 
 void BookReader::draw() {
-    if (app_.darkMode) {
-        SDL_ClearScreen(app_.renderer, BLACK);
+    const Theme& th = app_.theme();
+    if (app_.darkMode()) {
+        SDL_ClearScreen(app_.renderer, ToSDLColor(th.page_bg));
     } else {
-        SDL_ClearScreen(app_.renderer, WHITE);
+        SDL_ClearScreen(app_.renderer, ToSDLColor(th.page_bg_light));
     }
 
     SDL_RenderClear(app_.renderer);
     
     layout->draw_page();
 
-    if (app_.nightMode) {
+    if (app_.nightMode()) {
         SDL_SetRenderDrawBlendMode(app_.renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(app_.renderer, 255, 140, 0, 70);
+        SDL_SetRenderDrawColor(app_.renderer, th.night_overlay.r, th.night_overlay.g, th.night_overlay.b, th.night_overlay.alpha);
         SDL_RenderFillRect(app_.renderer, nullptr);
     }
 
@@ -244,19 +222,11 @@ void BookReader::draw() {
         const float topBarH = 55.0f;
         const float bottomBarH = 82.0f;
 
-        ImVec4 barBg = app_.darkMode
-            ? ImVec4(0.14f, 0.14f, 0.14f, 1.00f)
-            : ImVec4(0.86f, 0.86f, 0.86f, 1.00f);
-        ImVec4 sepCol = app_.darkMode
-            ? ImVec4(0.30f, 0.30f, 0.30f, 1.00f)
-            : ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
+        ImVec4 barBg(th.bar_bg.r / 255.0f, th.bar_bg.g / 255.0f, th.bar_bg.b / 255.0f, th.bar_bg.a / 255.0f);
+        ImVec4 sepCol(th.separator_bar.r / 255.0f, th.separator_bar.g / 255.0f, th.separator_bar.b / 255.0f, th.separator_bar.a / 255.0f);
 
-        ImU32 iconTint = app_.darkMode
-            ? IM_COL32(240, 240, 240, 255)
-            : IM_COL32(255, 255, 255, 255);
-        ImU32 iconBg   = app_.darkMode
-            ? IM_COL32(200, 200, 200, 255)
-            : IM_COL32(0, 0, 0, 0);
+        ImU32 iconTint = IM_COL32(th.icon_tint.r, th.icon_tint.g, th.icon_tint.b, th.icon_tint.a);
+        ImU32 iconBg   = IM_COL32(th.icon_bg.r, th.icon_bg.g, th.icon_bg.b, th.icon_bg.a);
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 10));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
@@ -285,7 +255,7 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 28) * 0.5f, min.y + (max.y - min.y - 28) * 0.5f);
-                if (app_.darkMode) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
                 drawList->AddImage((ImTextureID)icon_back, pos, ImVec2(pos.x + 28, pos.y + 28), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             if (ImGui::IsItemHovered()) {
@@ -307,7 +277,7 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 28) * 0.5f, min.y + (max.y - min.y - 28) * 0.5f);
-                if (app_.darkMode) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
                 drawList->AddImage((ImTextureID)icon_text, pos, ImVec2(pos.x + 28, pos.y + 28), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             ImGui::SameLine();
@@ -316,7 +286,7 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 28) * 0.5f, min.y + (max.y - min.y - 28) * 0.5f);
-                if (app_.darkMode) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
                 drawList->AddImage((ImTextureID)icon_toc, pos, ImVec2(pos.x + 28, pos.y + 28), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             ImGui::SameLine();
@@ -325,7 +295,7 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 28) * 0.5f, min.y + (max.y - min.y - 28) * 0.5f);
-                if (app_.darkMode) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
                 drawList->AddImage((ImTextureID)icon_bookmark, pos, ImVec2(pos.x + 28, pos.y + 28), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             ImGui::SameLine();
@@ -334,7 +304,7 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 28) * 0.5f, min.y + (max.y - min.y - 28) * 0.5f);
-                if (app_.darkMode) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
                 drawList->AddImage((ImTextureID)icon_search, pos, ImVec2(pos.x + 28, pos.y + 28), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             ImGui::SameLine();
@@ -343,7 +313,7 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 28) * 0.5f, min.y + (max.y - min.y - 28) * 0.5f);
-                if (app_.darkMode) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(drawList, pos, ImVec2(28,28), iconBg);
                 drawList->AddImage((ImTextureID)icon_more, pos, ImVec2(pos.x + 28, pos.y + 28), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
 
@@ -387,7 +357,7 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 24) * 0.5f, min.y + (max.y - min.y - 24) * 0.5f);
-                if (app_.darkMode) DrawIconBgCircle(drawList, pos, ImVec2(24,24), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(drawList, pos, ImVec2(24,24), iconBg);
                 drawList->AddImage((ImTextureID)icon_portrait, pos, ImVec2(pos.x + 24, pos.y + 24), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             if (_currentPageLayout == BookPageLayoutPortrait) {
@@ -409,7 +379,7 @@ void BookReader::draw() {
                 ImVec2 min = ImGui::GetItemRectMin();
                 ImVec2 max = ImGui::GetItemRectMax();
                 ImVec2 pos(min.x + (max.x - min.x - 24) * 0.5f, min.y + (max.y - min.y - 24) * 0.5f);
-                if (app_.darkMode) DrawIconBgCircle(drawList, pos, ImVec2(24,24), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(drawList, pos, ImVec2(24,24), iconBg);
                 drawList->AddImage((ImTextureID)icon_landscape, pos, ImVec2(pos.x + 24, pos.y + 24), ImVec2(0,0), ImVec2(1,1), iconTint);
             }
             if (_currentPageLayout == BookPageLayoutLandscape) {
@@ -448,7 +418,7 @@ void BookReader::draw() {
             }
             if (icon_back) {
                 ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(28,28));
-                if (app_.darkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(28,28), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(28,28), iconBg);
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_back, iconPos, ImVec2(28,28), cos_a, sin_a, iconTint);
             }
             if (ImGui::IsItemHovered()) {
@@ -460,35 +430,35 @@ void BookReader::draw() {
             if (ImGui::Button("##Text", ImVec2(82, 30))) { }
             if (icon_text) {
                 ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
-                if (app_.darkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_text, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
             ImGui::Dummy(ImVec2(0, 4));
             if (ImGui::Button("##TOC", ImVec2(82, 30))) { }
             if (icon_toc) {
                 ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
-                if (app_.darkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_toc, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
             ImGui::Dummy(ImVec2(0, 4));
             if (ImGui::Button("##Bookmark", ImVec2(82, 30))) { }
             if (icon_bookmark) {
                 ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
-                if (app_.darkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_bookmark, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
             ImGui::Dummy(ImVec2(0, 4));
             if (ImGui::Button("##Search", ImVec2(82, 30))) { }
             if (icon_search) {
                 ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
-                if (app_.darkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_search, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
             ImGui::Dummy(ImVec2(0, 4));
             if (ImGui::Button("##More", ImVec2(82, 30))) { }
             if (icon_more) {
                 ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
-                if (app_.darkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_more, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
 
@@ -515,7 +485,7 @@ void BookReader::draw() {
             }
             if (icon_portrait) {
                 ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
-                if (app_.darkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_portrait, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
             if (_currentPageLayout == BookPageLayoutPortrait) {
@@ -535,7 +505,7 @@ void BookReader::draw() {
             }
             if (icon_landscape) {
                 ImVec2 iconPos = CenteredIconPos(ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax()), ImVec2(24,24));
-                if (app_.darkMode) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
+                if (app_.darkMode()) DrawIconBgCircle(fgDrawList, iconPos, ImVec2(24,24), iconBg);
                 DrawRotatedIcon(fgDrawList, (ImTextureID)icon_landscape, iconPos, ImVec2(24,24), cos_a, sin_a, iconTint);
             }
             if (_currentPageLayout == BookPageLayoutLandscape) {

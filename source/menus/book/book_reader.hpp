@@ -33,6 +33,7 @@ class BookReader {
         void reset_page();
         void switch_page_layout();
         void draw();
+        void rerender_page() { if (layout) layout->force_rerender(); }
     
         BookPageLayout currentPageLayout() {
             return _currentPageLayout;

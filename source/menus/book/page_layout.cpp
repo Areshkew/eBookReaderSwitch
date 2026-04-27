@@ -92,7 +92,7 @@ void PageLayout::render_page_to_texture(int num, bool reset_zoom) {
     }
     
     fz_pixmap *pix = fz_new_pixmap_from_page_contents(ctx, page, fz_scale(zoom, zoom), fz_device_rgb(ctx), 0);
-    if (app_.darkMode) {
+    if (app_.darkMode()) {
         fz_invert_pixmap(ctx, pix);
     }
 
@@ -122,4 +122,8 @@ void PageLayout::move_page(float x, float y) {
     
     page_center.x = fmin(fmax(page_center.x + x, w / 2), viewport.w - w / 2);
     page_center.y = fmin(fmax(page_center.y + y, h / 2), h / 2);
+}
+
+void PageLayout::force_rerender() {
+    render_page_to_texture(_current_page, false);
 }

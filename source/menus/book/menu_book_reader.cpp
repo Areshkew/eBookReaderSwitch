@@ -12,6 +12,7 @@ extern "C" {
 #include "imgui_switch.h"
 
 #include <cmath>
+#include <string>
 
 struct TouchTracker {
     HidTouchScreenState prevState = {};
@@ -26,6 +27,7 @@ struct TouchTracker {
 
 static TouchTracker s_tracker;
 static float s_prevPinchDist = 0.0f;
+static bool s_showThemeModal = false;
 
 static float touchDistance(const HidTouchState& a, const HidTouchState& b) {
     float dx = static_cast<float>(a.x) - static_cast<float>(b.x);
@@ -107,11 +109,12 @@ void Menu_OpenBook(App& app, const char* path) {
             io.DeltaTime = 1.0f / 60.0f;
         ImGui::NewFrame();
 
-        ImGuiUpdateSwitchInput(&pad, reader->showUI);
-        ImGuiSetSwitchTheme(app.darkMode);
+        bool enableNav = reader->showUI || s_showThemeModal;
+        ImGuiUpdateSwitchInput(&pad, enableNav);
+        ImGuiSetSwitchTheme(app.darkMode());
 
         HidTouchScreenState touchState = {0};
-        bool hasTouch = hidGetTouchScreenStates(&touchState, 1);
+        bool hasTouch = !s_showThemeModal && hidGetTouchScreenStates(&touchState, 1);
 
         if (hasTouch) {
             s_tracker.maxTouchCount = (touchState.count > s_tracker.maxTouchCount)
@@ -272,17 +275,69 @@ void Menu_OpenBook(App& app, const char* path) {
         }
 
         if (kUp & HidNpadButton_Minus) {
-            app.darkMode = !app.darkMode;
-            reader->previous_page(0);
+            s_showThemeModal = true;
         }
 
         if (kDown & HidNpadButton_Plus) {
-            app.nightMode = !app.nightMode;
+            app.setNightMode(!app.nightMode());
         }
 
         reader->draw();
         if (reader->requestExit) {
             break;
+        }
+
+        if (s_showThemeModal) {
+            ImGui::OpenPopup("Themes");
+        }
+        ImVec2 modalCenter = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(modalCenter, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(500, 450));
+        if (ImGui::BeginPopupModal("Themes", &s_showThemeModal,
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar))
+        {
+            auto themeList = app.themes->ListThemes();
+            const std::string& active = app.config.Settings().active_theme;
+            const Theme& th = app.theme();
+            ImVec4 accentCol(th.accent.r / 255.0f, th.accent.g / 255.0f, th.accent.b / 255.0f, th.accent.a / 255.0f);
+
+            ImGui::Text("Select Theme");
+            ImGui::Separator();
+            ImGui::Dummy(ImVec2(0, 8));
+
+            ImGui::BeginChild("ThemeList", ImVec2(0, -50), ImGuiChildFlags_NavFlattened);
+            for (const auto& tname : themeList) {
+                bool isSelected = (tname == active);
+                if (isSelected) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, accentCol);
+                }
+                if (ImGui::Selectable(tname.c_str(), isSelected, 0, ImVec2(0, 36))) {
+                    if (tname != active) {
+                        app.themes->LoadTheme(tname.c_str());
+                        app.config.MutableSettings().active_theme = tname;
+                        app.config.MarkDirty();
+                        app.config.Save();
+                        reader->rerender_page();
+                    }
+                    s_showThemeModal = false;
+                    ImGui::CloseCurrentPopup();
+                }
+                if (isSelected) {
+                    ImGui::PopStyleColor();
+                }
+            }
+            ImGui::EndChild();
+
+            ImGui::Separator();
+            ImGui::Dummy(ImVec2(0, 4));
+            float bw = 120.0f;
+            ImGui::SetCursorPosX((ImGui::GetWindowSize().x - bw) * 0.5f);
+            if (ImGui::Button("Close", ImVec2(bw, 36))) {
+                s_showThemeModal = false;
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::EndPopup();
         }
 
         ImGui::Render();
