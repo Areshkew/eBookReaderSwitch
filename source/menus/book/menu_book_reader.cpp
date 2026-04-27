@@ -296,8 +296,8 @@ void Menu_OpenBook(App& app, const char* path) {
         if (ImGui::BeginPopupModal("Themes", &s_showThemeModal,
             ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar))
         {
-            auto themeList = app.themes->ListThemes();
-            const std::string& active = app.config.Settings().active_theme;
+            auto themeList = app.themes->list_themes();
+            const std::string& active = app.config.settings().active_theme;
             const Theme& th = app.theme();
             ImVec4 accentCol(th.accent.r / 255.0f, th.accent.g / 255.0f, th.accent.b / 255.0f, th.accent.a / 255.0f);
 
@@ -313,10 +313,10 @@ void Menu_OpenBook(App& app, const char* path) {
                 }
                 if (ImGui::Selectable(tname.c_str(), isSelected, 0, ImVec2(0, 36))) {
                     if (tname != active) {
-                        app.themes->LoadTheme(tname.c_str());
-                        app.config.MutableSettings().active_theme = tname;
-                        app.config.MarkDirty();
-                        app.config.Save();
+                        app.themes->load_theme(tname.c_str());
+                        app.config.mutable_settings().active_theme = tname;
+                        app.config.mark_dirty();
+                        app.config.save();
                         reader->rerender_page();
                     }
                     s_showThemeModal = false;

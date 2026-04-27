@@ -46,18 +46,18 @@ struct Theme {
 
 class ThemeManager {
 public:
-    static void Init();
-    static void Shutdown();
-    static ThemeManager& Instance();
+    static void init();
+    static void shutdown();
+    static ThemeManager& instance();
 
-    bool LoadTheme(const char* theme_name);
-    const Theme& CurrentTheme() const { return current_; }
-    const std::string& CurrentThemeName() const { return current_name_; }
-    bool IsDark() const;
-    std::vector<std::string> ListThemes() const;
+    bool load_theme(const char* theme_name);
+    const Theme& current_theme() const { return current_; }
+    const std::string& current_theme_name() const { return current_name_; }
+    bool is_dark() const;
+    std::vector<std::string> list_themes() const;
 
-    static Theme DarkDefault();
-    static Theme LightDefault();
+    static Theme dark_default();
+    static Theme light_default();
 
 private:
     ThemeManager() = default;

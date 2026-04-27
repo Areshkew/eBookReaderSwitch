@@ -122,7 +122,7 @@ void Menu_StartChoosing(App& app) {
         ImGui::PopStyleVar();
 
         ImGui::PushStyleColor(ImGuiCol_Text, accentColor);
-        ImGui::Text("eBook Reader");
+        ImGui::Text("Switchelf");
         ImGui::PopStyleColor();
 
         ImGui::SameLine();
@@ -264,8 +264,8 @@ void Menu_StartChoosing(App& app) {
         if (ImGui::BeginPopupModal("Themes", &showThemeModal,
             ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar))
         {
-            auto themeList = app.themes->ListThemes();
-            const string& active = app.config.Settings().active_theme;
+            auto themeList = app.themes->list_themes();
+            const string& active = app.config.settings().active_theme;
 
             ImGui::Text("Select Theme");
             ImGui::Separator();
@@ -279,10 +279,10 @@ void Menu_StartChoosing(App& app) {
                 }
                 if (ImGui::Selectable(tname.c_str(), isSelected, 0, ImVec2(0, 36))) {
                     if (tname != active) {
-                        app.themes->LoadTheme(tname.c_str());
-                        app.config.MutableSettings().active_theme = tname;
-                        app.config.MarkDirty();
-                        app.config.Save();
+                        app.themes->load_theme(tname.c_str());
+                        app.config.mutable_settings().active_theme = tname;
+                        app.config.mark_dirty();
+                        app.config.save();
                     }
                     showThemeModal = false;
                     ImGui::CloseCurrentPopup();

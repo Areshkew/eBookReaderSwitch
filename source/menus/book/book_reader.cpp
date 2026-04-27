@@ -84,12 +84,12 @@ BookReader::BookReader(App& app, const char *path, int* result) : app_(app) {
             return;
         }
         
-        int current_page = app_.config.GetSavedPage(book_name.c_str());
+        int current_page = app_.config.get_saved_page(book_name.c_str());
 
         LOG_I("current_page = %d", current_page);
 
         load_icons();
-        const std::string& rot = app_.config.Settings().rotation;
+        const std::string& rot = app_.config.settings().rotation;
         if (rot == "landscape") {
             _currentPageLayout = BookPageLayoutLandscape;
         }
@@ -133,12 +133,12 @@ void BookReader::free_icons() {
 
 void BookReader::previous_page(int n) {
     layout->previous_page(n);
-    app_.config.SetSavedPage(book_name.c_str(), layout->current_page());
+    app_.config.set_saved_page(book_name.c_str(), layout->current_page());
 }
 
 void BookReader::next_page(int n) {
     layout->next_page(n);
-    app_.config.SetSavedPage(book_name.c_str(), layout->current_page());
+    app_.config.set_saved_page(book_name.c_str(), layout->current_page());
 }
 
 void BookReader::zoom_in() {
@@ -181,15 +181,15 @@ void BookReader::switch_page_layout() {
     switch (_currentPageLayout) {
         case BookPageLayoutPortrait:
             switch_current_page_layout(BookPageLayoutLandscape, 0);
-            app_.config.MutableSettings().rotation = "landscape";
-            app_.config.MarkDirty();
-            app_.config.Save();
+            app_.config.mutable_settings().rotation = "landscape";
+            app_.config.mark_dirty();
+            app_.config.save();
             break;
         case BookPageLayoutLandscape:
             switch_current_page_layout(BookPageLayoutPortrait, 0);
-            app_.config.MutableSettings().rotation = "portrait";
-            app_.config.MarkDirty();
-            app_.config.Save();
+            app_.config.mutable_settings().rotation = "portrait";
+            app_.config.mark_dirty();
+            app_.config.save();
             break;
     }
 }

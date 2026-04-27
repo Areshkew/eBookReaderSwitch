@@ -67,12 +67,12 @@ static bool loadFonts() {
 void App::shutdown() {
     LOG_I("Terminating...");
 
-    if (config.IsDirty()) {
-        config.Save();
+    if (config.is_dirty()) {
+        config.save();
     }
 
     if (themes) {
-        ThemeManager::Shutdown();
+        ThemeManager::shutdown();
         themes = nullptr;
     }
 
@@ -186,11 +186,11 @@ bool App::init() {
     FS_RecursiveMakeDir(THEMES_DIR);
 
     LOG_I("Config...");
-    config.Load(CONFIG_FILE);
+    config.load(CONFIG_FILE);
 
     LOG_I("Theme...");
-    ThemeManager::Init();
-    themes = &ThemeManager::Instance();
+    ThemeManager::init();
+    themes = &ThemeManager::instance();
     {
         static const char* bundledThemes[] = {"dark", "light"};
         for (const char* tname : bundledThemes) {
@@ -220,7 +220,7 @@ bool App::init() {
                 }
             }
         }
-        themes->LoadTheme(config.Settings().active_theme.c_str());
+        themes->load_theme(config.settings().active_theme.c_str());
     }
 
     LOG_I("ImGui...");

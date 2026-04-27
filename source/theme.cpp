@@ -15,23 +15,23 @@ extern "C" {
 
 static ThemeManager* s_instance = nullptr;
 
-void ThemeManager::Init() {
+void ThemeManager::init() {
     if (!s_instance) {
         s_instance = new ThemeManager();
         s_instance->initialized_ = true;
     }
 }
 
-void ThemeManager::Shutdown() {
+void ThemeManager::shutdown() {
     delete s_instance;
     s_instance = nullptr;
 }
 
-ThemeManager& ThemeManager::Instance() {
+ThemeManager& ThemeManager::instance() {
     return *s_instance;
 }
 
-static ThemeColor ParseColor(const char* hex) {
+static ThemeColor parse_color(const char* hex) {
     ThemeColor c = {0, 0, 0, 255};
     if (!hex) return c;
     size_t len = strlen(hex);
@@ -48,7 +48,7 @@ static ThemeColor ParseColor(const char* hex) {
     return c;
 }
 
-static ThemeImGuiColor ParseImGuiColor(const rapidjson::Value& arr) {
+static ThemeImGuiColor parse_imgui_color(const rapidjson::Value& arr) {
     ThemeImGuiColor c = {0, 0, 0, 1};
     if (arr.IsArray() && arr.Size() >= 3) {
         c.r = arr[0].GetFloat();
@@ -59,8 +59,8 @@ static ThemeImGuiColor ParseImGuiColor(const rapidjson::Value& arr) {
     return c;
 }
 
-static Theme LoadThemeFromJson(const char* path) {
-    Theme t = ThemeManager::DarkDefault();
+static Theme load_theme_from_json(const char* path) {
+    Theme t = ThemeManager::dark_default();
 
     FILE* fp = fopen(path, "rb");
     if (!fp) {
@@ -91,28 +91,28 @@ static Theme LoadThemeFromJson(const char* path) {
 
     if (doc.HasMember("colors") && doc["colors"].IsObject()) {
         const auto& c = doc["colors"];
-        if (c.HasMember("background"))       t.background       = ParseColor(c["background"].GetString());
-        if (c.HasMember("text"))             t.text             = ParseColor(c["text"].GetString());
-        if (c.HasMember("accent"))           t.accent           = ParseColor(c["accent"].GetString());
-        if (c.HasMember("page_bg"))          t.page_bg          = ParseColor(c["page_bg"].GetString());
-        if (c.HasMember("page_bg_light"))    t.page_bg_light    = ParseColor(c["page_bg_light"].GetString());
-        if (c.HasMember("status_bar"))       t.status_bar       = ParseColor(c["status_bar"].GetString());
-        if (c.HasMember("selector"))         t.selector         = ParseColor(c["selector"].GetString());
-        if (c.HasMember("hint"))             t.hint             = ParseColor(c["hint"].GetString());
-        if (c.HasMember("title"))            t.title            = ParseColor(c["title"].GetString());
-        if (c.HasMember("separator"))        t.separator        = ParseColor(c["separator"].GetString());
-        if (c.HasMember("icon_tint"))        t.icon_tint        = ParseColor(c["icon_tint"].GetString());
-        if (c.HasMember("icon_bg"))          t.icon_bg          = ParseColor(c["icon_bg"].GetString());
-        if (c.HasMember("badge_bg"))         t.badge_bg         = ParseColor(c["badge_bg"].GetString());
-        if (c.HasMember("badge_text"))       t.badge_text       = ParseColor(c["badge_text"].GetString());
-        if (c.HasMember("bar_bg"))           t.bar_bg           = ParseColor(c["bar_bg"].GetString());
-        if (c.HasMember("separator_bar"))    t.separator_bar    = ParseColor(c["separator_bar"].GetString());
+        if (c.HasMember("background"))       t.background       = parse_color(c["background"].GetString());
+        if (c.HasMember("text"))             t.text             = parse_color(c["text"].GetString());
+        if (c.HasMember("accent"))           t.accent           = parse_color(c["accent"].GetString());
+        if (c.HasMember("page_bg"))          t.page_bg          = parse_color(c["page_bg"].GetString());
+        if (c.HasMember("page_bg_light"))    t.page_bg_light    = parse_color(c["page_bg_light"].GetString());
+        if (c.HasMember("status_bar"))       t.status_bar       = parse_color(c["status_bar"].GetString());
+        if (c.HasMember("selector"))         t.selector         = parse_color(c["selector"].GetString());
+        if (c.HasMember("hint"))             t.hint             = parse_color(c["hint"].GetString());
+        if (c.HasMember("title"))            t.title            = parse_color(c["title"].GetString());
+        if (c.HasMember("separator"))        t.separator        = parse_color(c["separator"].GetString());
+        if (c.HasMember("icon_tint"))        t.icon_tint        = parse_color(c["icon_tint"].GetString());
+        if (c.HasMember("icon_bg"))          t.icon_bg          = parse_color(c["icon_bg"].GetString());
+        if (c.HasMember("badge_bg"))         t.badge_bg         = parse_color(c["badge_bg"].GetString());
+        if (c.HasMember("badge_text"))       t.badge_text       = parse_color(c["badge_text"].GetString());
+        if (c.HasMember("bar_bg"))           t.bar_bg           = parse_color(c["bar_bg"].GetString());
+        if (c.HasMember("separator_bar"))    t.separator_bar    = parse_color(c["separator_bar"].GetString());
     }
 
     if (doc.HasMember("night_overlay") && doc["night_overlay"].IsObject()) {
         const auto& n = doc["night_overlay"];
         if (n.HasMember("color")) {
-            ThemeColor nc = ParseColor(n["color"].GetString());
+            ThemeColor nc = parse_color(n["color"].GetString());
             t.night_overlay.r = nc.r;
             t.night_overlay.g = nc.g;
             t.night_overlay.b = nc.b;
@@ -124,7 +124,7 @@ static Theme LoadThemeFromJson(const char* path) {
     if (doc.HasMember("imgui") && doc["imgui"].IsObject()) {
         const auto& ig = doc["imgui"];
         for (auto it = ig.MemberBegin(); it != ig.MemberEnd(); ++it) {
-            t.imgui_colors[it->name.GetString()] = ParseImGuiColor(it->value);
+            t.imgui_colors[it->name.GetString()] = parse_imgui_color(it->value);
         }
     }
 
@@ -133,7 +133,7 @@ static Theme LoadThemeFromJson(const char* path) {
     return t;
 }
 
-bool ThemeManager::LoadTheme(const char* theme_name) {
+bool ThemeManager::load_theme(const char* theme_name) {
     char sd_path[512];
     snprintf(sd_path, sizeof(sd_path), "%s/%s/theme.json", THEMES_DIR, theme_name);
 
@@ -141,23 +141,23 @@ bool ThemeManager::LoadTheme(const char* theme_name) {
     snprintf(romfs_path, sizeof(romfs_path), "%s/%s/theme.json", THEMES_ROMFS_BASE, theme_name);
 
     if (FS_FileExists(sd_path)) {
-        current_ = LoadThemeFromJson(sd_path);
+        current_ = load_theme_from_json(sd_path);
     } else if (FS_FileExists(romfs_path)) {
-        current_ = LoadThemeFromJson(romfs_path);
+        current_ = load_theme_from_json(romfs_path);
     } else {
         LOG_W("Theme not found: %s, falling back to default", theme_name);
-        current_ = (strcmp(theme_name, "light") == 0) ? LightDefault() : DarkDefault();
+        current_ = (strcmp(theme_name, "light") == 0) ? light_default() : dark_default();
     }
     current_name_ = theme_name;
     return true;
 }
 
-bool ThemeManager::IsDark() const {
+bool ThemeManager::is_dark() const {
     float lum = 0.299f * current_.background.r + 0.587f * current_.background.g + 0.114f * current_.background.b;
     return lum < 128.0f;
 }
 
-std::vector<std::string> ThemeManager::ListThemes() const {
+std::vector<std::string> ThemeManager::list_themes() const {
     std::vector<std::string> result;
     if (!fs::exists(THEMES_DIR)) return result;
     for (const auto& entry : fs::directory_iterator(THEMES_DIR)) {
@@ -174,7 +174,7 @@ std::vector<std::string> ThemeManager::ListThemes() const {
     return result;
 }
 
-Theme ThemeManager::DarkDefault() {
+Theme ThemeManager::dark_default() {
     Theme t;
     t.name = "Dark";
     t.background       = {0, 0, 0, 255};
@@ -197,7 +197,7 @@ Theme ThemeManager::DarkDefault() {
     return t;
 }
 
-Theme ThemeManager::LightDefault() {
+Theme ThemeManager::light_default() {
     Theme t;
     t.name = "Light";
     t.background       = {255, 255, 255, 255};

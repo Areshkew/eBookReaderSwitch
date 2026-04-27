@@ -45,7 +45,7 @@ void ImGuiSetSwitchTheme(bool dark) {
     ImGuiStyle& style = ImGui::GetStyle();
     ImVec4* colors = style.Colors;
 
-    const Theme& theme = ThemeManager::Instance().CurrentTheme();
+    const Theme& theme = ThemeManager::instance().current_theme();
 
     if (!theme.imgui_colors.empty()) {
         for (const auto& kv : theme.imgui_colors) {

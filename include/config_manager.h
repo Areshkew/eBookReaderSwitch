@@ -13,17 +13,17 @@ struct ConfigSettings {
 
 class ConfigManager {
 public:
-    bool Load(const char* path);
-    void Save();
+    bool load(const char* path);
+    void save();
 
-    const ConfigSettings& Settings() const { return settings_; }
-    ConfigSettings& MutableSettings() { return settings_; }
+    const ConfigSettings& settings() const { return settings_; }
+    ConfigSettings& mutable_settings() { return settings_; }
 
-    int GetSavedPage(const char* book_key) const;
-    void SetSavedPage(const char* book_key, int page);
+    int get_saved_page(const char* book_key) const;
+    void set_saved_page(const char* book_key, int page);
 
-    void MarkDirty() { dirty_ = true; }
-    bool IsDirty() const { return dirty_; }
+    void mark_dirty() { dirty_ = true; }
+    bool is_dirty() const { return dirty_; }
 
 private:
     std::string path_;

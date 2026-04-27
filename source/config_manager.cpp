@@ -9,7 +9,7 @@ extern "C" {
 #include "logger.h"
 }
 
-bool ConfigManager::Load(const char* path) {
+bool ConfigManager::load(const char* path) {
     path_ = path;
 
     FILE* fp = fopen(path, "rb");
@@ -70,7 +70,7 @@ bool ConfigManager::Load(const char* path) {
     return true;
 }
 
-void ConfigManager::Save() {
+void ConfigManager::save() {
     if (path_.empty()) return;
 
     rapidjson::Document doc;
@@ -110,13 +110,13 @@ void ConfigManager::Save() {
     dirty_ = false;
 }
 
-int ConfigManager::GetSavedPage(const char* book_key) const {
+int ConfigManager::get_saved_page(const char* book_key) const {
     auto it = saved_pages_.find(book_key);
     return (it != saved_pages_.end()) ? it->second : 0;
 }
 
-void ConfigManager::SetSavedPage(const char* book_key, int page) {
+void ConfigManager::set_saved_page(const char* book_key, int page) {
     saved_pages_[book_key] = page;
     dirty_ = true;
-    Save();
+    save();
 }

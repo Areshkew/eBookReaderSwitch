@@ -14,11 +14,11 @@ struct App {
     ConfigManager config;
     ThemeManager* themes = nullptr;
 
-    bool darkMode() const { return themes ? themes->IsDark() : true; }
+    bool darkMode() const { return themes ? themes->is_dark() : true; }
     void setDarkMode(bool) {} 
-    bool nightMode() const { return config.Settings().night_mode; }
-    void setNightMode(bool v) { config.MutableSettings().night_mode = v; config.MarkDirty(); }
-    const Theme& theme() const { return themes->CurrentTheme(); }
+    bool nightMode() const { return config.settings().night_mode; }
+    void setNightMode(bool v) { config.mutable_settings().night_mode = v; config.mark_dirty(); }
+    const Theme& theme() const { return themes->current_theme(); }
 
     bool imguiInitialized = false;
     bool romfsInited = false;
