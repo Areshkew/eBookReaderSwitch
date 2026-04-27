@@ -3,6 +3,7 @@
 
 #include <mupdf/pdf.h>
 #include <SDL2/SDL.h>
+#include "app.h"
 
 extern fz_context *ctx;
 
@@ -18,7 +19,9 @@ static inline void FreeTextureIfNeeded(SDL_Texture **texture)
 class PageLayout
 {
     public:
-        PageLayout(fz_document *doc, int current_page);
+        virtual ~PageLayout() = default;
+
+        PageLayout(App& app, fz_document *doc, int current_page);
     
         int current_page()
         {
@@ -49,6 +52,7 @@ class PageLayout
         virtual void set_zoom(float value);
         virtual void move_page(float x, float y);
     
+        App& app_;
         fz_document *doc = NULL;
         pdf_document *pdf = NULL;
         const int pages_count = 0;
