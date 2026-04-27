@@ -7,7 +7,7 @@
 #include "textures.h"
 
 static char *Clock_GetCurrentTime(void) {
-	static char buffer[16];
+	static char buffer[32];
 
     time_t unixTime = time(NULL);
 	struct tm* timeStruct = gmtime((const time_t *)&unixTime);
